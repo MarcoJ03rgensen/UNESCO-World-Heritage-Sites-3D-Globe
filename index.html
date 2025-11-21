@@ -4,7 +4,7 @@
     <title>UNESCO World Heritage Sites 3D Globe</title>
     <meta property="og:description" content="Display a globe with UNESCO World Heritage Sites." />
     <meta charset='utf-8'>
-    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <link rel='stylesheet' href='https://unpkg.com/maplibre-gl@5.13.0/dist/maplibre-gl.css' />
     <script src='https://unpkg.com/maplibre-gl@5.13.0/dist/maplibre-gl.js'></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
@@ -12,13 +12,16 @@
     <style>
         body { 
             margin: 0; 
-            padding: 0; 
+            /* respect device safe areas (notch, rounded corners) */
+            padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
             background: linear-gradient(45deg, #87CEEB, #4682B4, #5B9BD5);
             background-size: 400% 400%;
             animation: skyShift 10s ease-in-out infinite;
             font-family: 'Inter', sans-serif;
         }
-        html, body, #map { height: 100%; }
+        html, body { height: 100%; }
+        /* make map occupy the full viewport and avoid clipping on mobile */
+        #map { position: fixed; inset: 0; width: 100%; height: 100%; z-index: 0; }
         @keyframes skyShift {
             0% { background-position: 0% 50%; }
             50% { background-position: 100% 50%; }
@@ -88,10 +91,44 @@
             color: white;
             font-family: 'Inter', sans-serif;
             box-shadow: 0 8px 32px rgba(0,0,0,0.4);
-            padding: 15px;
-            max-width: 300px;
+            /* add top padding so the close button doesn't overlap header text */
+            padding: 20px 15px 15px 15px;
+            max-width: 320px;
+            /* allow long descriptions to scroll inside the popup */
+            max-height: 45vh;
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
             text-shadow: 0 1px 2px rgba(0,0,0,0.5);
         }
+
+        /* Ensure popup titles don't overlap the close button: reserve space to the right */
+        .maplibregl-popup-content h3 {
+            margin: 0 0 10px 0 !important;
+            /* reserve ~64px for the close button and breathing room */
+            max-width: calc(100% - 64px) !important;
+            display: block !important;
+            word-break: break-word !important;
+            overflow-wrap: anywhere !important;
+            white-space: normal !important;
+        }
+
+        /* Larger, clearer close button for popups */
+        .maplibregl-popup-close-button {
+            width: 38px !important;
+            height: 38px !important;
+            line-height: 38px !important;
+            font-size: 20px !important;
+            border-radius: 8px !important;
+            top: 8px !important;
+            right: 8px !important;
+            background: rgba(255,255,255,0.06) !important;
+            color: white !important;
+            text-align: center !important;
+            padding: 0 !important;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3) !important;
+        }
+          /* Ensure the close button text is visible and centered (we set the glyph in JS) */
+          .maplibregl-popup-close-button { text-indent: 0 !important; }
         .maplibregl-ctrl-group {
             backdrop-filter: blur(10px);
             background: rgba(255,255,255,0.1) !important;
@@ -352,23 +389,53 @@
                     filter: ['==', 'id', -1] // Initially no features
                 });
 
-                // Add popup
+                // Add popup: zoom to feature and show a scrollable popup for long descriptions
                 map.on('click', 'sites-layer', (e) => {
                     const coordinates = e.features[0].geometry.coordinates.slice();
                     const properties = e.features[0].properties;
                     const categoryIcon = properties.category === 'C' ? '🏛️' : properties.category === 'N' ? '🌿' : '🏞️';
 
-                    new maplibregl.Popup()
+                    // compute a sensible zoom target (don't over-zoom)
+                    const currentZoom = map.getZoom();
+                    const targetZoom = Math.min(8, Math.max(currentZoom + 1.5, 5));
+
+                    // center with a slight upward offset so the popup (which appears above the point)
+                    // has room to display without being clipped on mobile
+                    map.easeTo({ center: coordinates, zoom: targetZoom, offset: [0, -80], duration: 700 });
+
+                    const popupHtml = `
+                        <div style="text-align: left;">
+                            <h3 style="margin: 0 0 10px 0; color: #87CEEB;">${properties.name}</h3>
+                            <p style="margin: 5px 0;"><strong>${categoryIcon} Category:</strong> ${properties.category === 'C' ? 'Cultural' : properties.category === 'N' ? 'Natural' : 'Mixed'}</p>
+                            <p style="margin: 5px 0;"><strong>🌍 Country:</strong> ${properties.country}</p>
+                            <div style="margin: 10px 0; font-size: 14px; line-height: 1.4;">${properties.description}</div>
+                        </div>
+                    `;
+
+                    // create popup with explicit options and add to map
+                    const popup = new maplibregl.Popup({ maxWidth: '320px', closeButton: true, closeOnClick: false })
                         .setLngLat(coordinates)
-                        .setHTML(`
-                            <div style="text-align: center;">
-                                <h3 style="margin: 0 0 10px 0; color: #87CEEB;">${properties.name}</h3>
-                                <p style="margin: 5px 0;"><strong>${categoryIcon} Category:</strong> ${properties.category === 'C' ? 'Cultural' : properties.category === 'N' ? 'Natural' : 'Mixed'}</p>
-                                <p style="margin: 5px 0;"><strong>🌍 Country:</strong> ${properties.country}</p>
-                                <p style="margin: 10px 0; font-size: 14px; line-height: 1.4;">${properties.description}</p>
-                            </div>
-                        `)
+                        .setHTML(popupHtml)
                         .addTo(map);
+
+                    // Ensure the close button shows a single big × and is centered
+                    try {
+                        const btn = popup._container && popup._container.querySelector && popup._container.querySelector('.maplibregl-popup-close-button');
+                        if (btn) {
+                            btn.textContent = '×';
+                            btn.setAttribute('aria-label', 'Close');
+                            btn.style.width = '38px';
+                            btn.style.height = '38px';
+                            btn.style.lineHeight = '38px';
+                            btn.style.fontSize = '20px';
+                            btn.style.display = 'inline-flex';
+                            btn.style.alignItems = 'center';
+                            btn.style.justifyContent = 'center';
+                            btn.style.textIndent = '0';
+                        }
+                    } catch (err) {
+                        // ignore if popup internals change
+                    }
                 });
 
                 // Add fade-in animation for markers
@@ -431,6 +498,15 @@
                         }
                     });
                 }
+
+                // Ensure the map resizes on orientation/viewport changes so the globe isn't clipped
+                function safeResize() {
+                    try { if (map && typeof map.resize === 'function') map.resize(); } catch (e) { /* ignore */ }
+                }
+                window.addEventListener('resize', () => { setTimeout(safeResize, 60); });
+                window.addEventListener('orientationchange', () => { setTimeout(safeResize, 180); });
+                // trigger an initial resize after elements settle
+                setTimeout(safeResize, 300);
 
                 // Apply filter
                 document.getElementById('apply').addEventListener('click', () => {
