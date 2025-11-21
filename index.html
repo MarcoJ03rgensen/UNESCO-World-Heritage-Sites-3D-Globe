@@ -148,6 +148,32 @@
             /* make sure menu toggle doesn't overlap citation on very small screens */
             #toggle-menu { top: 12px !important; left: 12px !important; }
         }
+
+        /* Citation toggle for small screens: hide full citation, show compact toggle */
+        #citation-toggle { display: none; }
+        @media (max-width: 600px) {
+            /* hide citation by default on phones; will be shown when .visible */
+            #citation { display: none !important; }
+            #citation.visible { display: block !important; position: fixed !important; left: 10px !important; bottom: 60px !important; width: calc(100% - 40px) !important; max-width: 320px !important; border-radius: 10px !important; }
+
+            /* small toggle button at bottom-left */
+            #citation-toggle {
+                display: flex !important;
+                position: fixed !important;
+                left: 10px !important;
+                bottom: 10px !important;
+                width: 44px !important;
+                height: 44px !important;
+                border-radius: 8px !important;
+                align-items: center !important;
+                justify-content: center !important;
+                background: rgba(255,255,255,0.08) !important;
+                border: 1px solid rgba(255,255,255,0.12) !important;
+                z-index: 1004 !important;
+                box-shadow: 0 6px 18px rgba(0,0,0,0.18) !important;
+                cursor: pointer !important;
+            }
+        }
     </style>
 </head>
 <body>
@@ -166,6 +192,8 @@
 <div id="citation" style="position: absolute; bottom: 10px; left: 10px; padding: 5px; border-radius: 5px; z-index: 1000; box-shadow: 0 4px 16px rgba(0,0,0,0.2); font-size: 10px;">
     <strong style="color: white;">Citation:</strong> <span style="color: rgba(255,255,255,0.9);">Chloé Meyer (2024). World Heritage Site List [Data set]. UNESCO IHP-WINS. <a href="https://doi.org/10.63253/qblhcalw" target="_blank" style="color: #87CEEB;">https://doi.org/10.63253/qblhcalw</a></span>
 </div>
+<!-- Citation toggle for phones -->
+<button id="citation-toggle" aria-controls="citation" aria-expanded="false" title="Show citation" style="display:none;">ℹ️</button>
 <!-- Unavngivet logo placed next to MapLibre controls (top-right). Matches control size and glass style -->
 /* swap positions: custom logo will sit where controls usually sit, controls will sit directly beneath the logo */
 <style>
@@ -373,6 +401,36 @@
                     // Accessibility
                     document.getElementById('toggle-menu').setAttribute('aria-expanded', isOpen ? 'true' : 'false');
                 });
+
+                // Citation toggle for small screens
+                const citationEl = document.getElementById('citation');
+                const citationToggle = document.getElementById('citation-toggle');
+                if (citationToggle && citationEl) {
+                    citationToggle.addEventListener('click', (ev) => {
+                        ev.stopPropagation();
+                        const visible = citationEl.classList.toggle('visible');
+                        citationToggle.setAttribute('aria-expanded', visible ? 'true' : 'false');
+                    });
+
+                    // prevent clicks inside citation from closing it
+                    citationEl.addEventListener('click', (ev) => ev.stopPropagation());
+
+                    // click outside hides citation on small screens
+                    document.addEventListener('click', () => {
+                        if (window.innerWidth <= 600 && citationEl.classList.contains('visible')) {
+                            citationEl.classList.remove('visible');
+                            citationToggle.setAttribute('aria-expanded', 'false');
+                        }
+                    });
+
+                    // hide citation when resizing to larger screens
+                    window.addEventListener('resize', () => {
+                        if (window.innerWidth > 600) {
+                            citationEl.classList.remove('visible');
+                            citationToggle.setAttribute('aria-expanded', 'false');
+                        }
+                    });
+                }
 
                 // Apply filter
                 document.getElementById('apply').addEventListener('click', () => {
