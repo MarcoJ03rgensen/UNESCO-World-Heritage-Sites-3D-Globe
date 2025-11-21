@@ -32,6 +32,3 @@ For more information, visit the [UNESCO IHP-WINS dataset page](https://ihp-wins.
 - MapLibre GL JS
 - PapaParse for CSV handling
 - HTML/CSS/JS
-
-## License
-This project is open-source under the MIT License. The dataset is licensed under CC BY-SA as stated above.
