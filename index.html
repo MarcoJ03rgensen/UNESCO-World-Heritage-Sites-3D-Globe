@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>UNESCO World Heritage Sites 3D Globe</title>
+    <meta property="og:description" content="Display a globe with UNESCO World Heritage Sites." />
+    <meta charset='utf-8'>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel='stylesheet' href='https://unpkg.com/maplibre-gl@5.13.0/dist/maplibre-gl.css' />
+    <script src='https://unpkg.com/maplibre-gl@5.13.0/dist/maplibre-gl.js'></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap">
+    <style>
+        body { 
+            margin: 0; 
+            padding: 0; 
+            background: linear-gradient(45deg, #87CEEB, #4682B4, #5B9BD5);
+            background-size: 400% 400%;
+            animation: skyShift 10s ease-in-out infinite;
+            font-family: 'Inter', sans-serif;
+        }
+        html, body, #map { height: 100%; }
+        @keyframes skyShift {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+        #menu {
+            backdrop-filter: blur(15px);
+            background: rgba(255,255,255,0.1);
+            border: 1px solid rgba(255,255,255,0.2);
+            color: white;
+        }
+        #menu h4 { color: white; }
+        #menu label { color: white; }
+        #toggle-menu {
+            backdrop-filter: blur(10px);
+            background: rgba(255,255,255,0.1);
+            color: white;
+            border: 1px solid rgba(255,255,255,0.3);
+            transition: all 0.3s;
+        }
+        #apply {
+            backdrop-filter: blur(10px);
+            background: rgba(255,255,255,0.1);
+            color: white;
+            border: 1px solid rgba(255,255,255,0.3);
+            transition: all 0.3s;
+        }
+        #apply:hover {
+            background: rgba(255,255,255,0.2) !important;
+            transform: scale(1.05);
+        }
+        #citation {
+            backdrop-filter: blur(10px);
+            background: rgba(255,255,255,0.1);
+            border: 1px solid rgba(255,255,255,0.2);
+            color: white;
+        }
+        #citation a { color: #87CEEB; }
+        .maplibregl-popup-content {
+            background: rgba(0,0,0,0.4);
+            backdrop-filter: blur(15px);
+            border-radius: 10px;
+            border: 1px solid rgba(255,255,255,0.3);
+            color: white;
+            font-family: 'Inter', sans-serif;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+            padding: 15px;
+            max-width: 300px;
+            text-shadow: 0 1px 2px rgba(0,0,0,0.5);
+        }
+        .maplibregl-ctrl-group {
+            backdrop-filter: blur(10px);
+            background: rgba(255,255,255,0.1) !important;
+            border: 1px solid rgba(255,255,255,0.3) !important;
+            border-radius: 5px !important;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.2) !important;
+        }
+        .maplibregl-ctrl-group button {
+            background: transparent !important;
+            color: white !important;
+            border: none !important;
+        }
+        .maplibregl-ctrl-group button:hover {
+            background: rgba(255,255,255,0.2) !important;
+        }
+    </style>
+</head>
+<body>
+<div id="map"></div>
+<div id="menu" style="position: absolute; top: 10px; left: 10px; padding: 15px; border-radius: 10px; z-index: 1000; transform: translateX(-100%); transition: transform 0.3s ease; box-shadow: 0 8px 32px rgba(0,0,0,0.3);">
+    <h4 style="margin-top: 0; font-weight: 600;">Filter Sites</h4>
+    <strong>Type:</strong><br>
+    <label><input type="checkbox" id="cultural" checked> Cultural</label><br>
+    <label><input type="checkbox" id="natural" checked> Natural</label><br>
+    <label><input type="checkbox" id="mixed" checked> Mixed</label><br>
+    <strong>Status:</strong><br>
+    <label><input type="checkbox" id="in-danger" checked> In Danger</label><br>
+    <button id="apply" style="margin-top: 15px; padding: 8px 15px; background: linear-gradient(45deg, #06768d, #055a6a); color: white; border: none; border-radius: 5px; cursor: pointer; font-weight: 600;">Apply</button>
+</div>
+<button id="toggle-menu" style="position: absolute; top: 10px; left: 10px; z-index: 1001; padding: 8px 12px; border-radius: 5px; cursor: pointer; font-size: 16px;">☰</button>
+<div id="citation" style="position: absolute; bottom: 10px; left: 10px; padding: 5px; border-radius: 5px; z-index: 1000; box-shadow: 0 4px 16px rgba(0,0,0,0.2); font-size: 10px;">
+    <strong style="color: white;">Citation:</strong> <span style="color: rgba(255,255,255,0.9);">Chloé Meyer (2024). World Heritage Site List [Data set]. UNESCO IHP-WINS. <a href="https://doi.org/10.63253/qblhcalw" target="_blank" style="color: #87CEEB;">https://doi.org/10.63253/qblhcalw</a></span>
+</div>
+<script>
+    const map = new maplibregl.Map({
+        container: 'map',
+        style: 'https://demotiles.maplibre.org/style.json',
+        zoom: 2,
+        center: [0, 0],
+    });
+
+    map.on('style.load', () => {
+        map.setProjection({
+            type: 'globe', // Set projection to globe
+        });
+
+        // Add navigation control for zoom/pan on mobile
+        map.addControl(new maplibregl.NavigationControl(), 'top-right');
+
+        // Enhance globe surface colors for clarity
+        if (map.getLayer('background')) {
+            map.setPaintProperty('background', 'background-color', '#06768d');
+        }
+        if (map.getLayer('land')) {
+            map.setPaintProperty('land', 'fill-color', '#228B22');
+        }
+        if (map.getLayer('water')) {
+            map.setPaintProperty('water', 'fill-color', '#06768d');
+        }
+        if (map.getLayer('ocean')) {
+            map.setPaintProperty('ocean', 'fill-color', '#06768d');
+        }
+        if (map.getLayer('country-boundaries')) {
+            map.setPaintProperty('country-boundaries', 'line-color', '#000000');
+            map.setPaintProperty('country-boundaries', 'line-opacity', 1);
+            map.setPaintProperty('country-boundaries', 'line-width', 3);
+        }
+        if (map.getLayer('admin-1-boundaries')) {
+            map.setPaintProperty('admin-1-boundaries', 'line-color', '#333333');
+            map.setPaintProperty('admin-1-boundaries', 'line-opacity', 0.8);
+            map.setPaintProperty('admin-1-boundaries', 'line-width', 1);
+        }
+
+        // Load CSV data
+        fetch('https://ihp-wins.unesco.org/dataset/unesco-world-heritage-sites/resource/2f46f6b2-45f9-402b-ace9-1e02c9c97a3d/download/whc-sites-2025.csv')
+            .then(response => response.text())
+            .then(data => {
+                const parsed = Papa.parse(data, { header: true, skipEmptyLines: true });
+                const sites = [];
+
+                parsed.data.forEach((site, index) => {
+                    if (site.latitude && site.longitude && !isNaN(parseFloat(site.latitude)) && !isNaN(parseFloat(site.longitude))) {
+                        sites.push({
+                            type: 'Feature',
+                            properties: {
+                                id: index,
+                                name: site.name_en,
+                                category: site.category_short,
+                                danger: site.danger,
+                                country: site.states_name_en,
+                                description: site.short_description_en
+                            },
+                            geometry: {
+                                type: 'Point',
+                                coordinates: [parseFloat(site.longitude), parseFloat(site.latitude)]
+                            }
+                        });
+                    }
+                });
+
+                // Add source
+                map.addSource('sites', {
+                    type: 'geojson',
+                    data: {
+                        type: 'FeatureCollection',
+                        features: sites
+                    }
+                });
+
+                // Add layer for sites
+                map.addLayer({
+                    id: 'sites-layer',
+                    type: 'circle',
+                    source: 'sites',
+                    paint: {
+                        'circle-radius': 5,
+                        'circle-color': [
+                            'match',
+                            ['get', 'category'],
+                            'C', '#ff7f0e', // Cultural - orange
+                            'N', '#1f77b4', // Natural - blue
+                            'M', '#2ca02c', // Mixed - green
+                            '#9467bd' // Default - purple
+                        ],
+                        'circle-stroke-width': 2,
+                        'circle-stroke-color': '#000000',
+                        'circle-opacity': 0.9,
+                        'circle-stroke-opacity': 0.8,
+                        'circle-blur': 0.2
+                    }
+                });
+
+                // Add hover layer for enlarged marker
+                map.addLayer({
+                    id: 'sites-hover-layer',
+                    type: 'circle',
+                    source: 'sites',
+                    paint: {
+                        'circle-radius': 12,
+                        'circle-color': [
+                            'match',
+                            ['get', 'category'],
+                            'C', '#ff7f0e', // Cultural - orange
+                            'N', '#1f77b4', // Natural - blue
+                            'M', '#2ca02c', // Mixed - green
+                            '#9467bd' // Default - purple
+                        ],
+                        'circle-stroke-width': 3,
+                        'circle-stroke-color': '#000000',
+                        'circle-opacity': 1,
+                        'circle-stroke-opacity': 1,
+                        'circle-blur': 0
+                    },
+                    filter: ['==', 'id', -1] // Initially no features
+                });
+
+                // Add popup
+                map.on('click', 'sites-layer', (e) => {
+                    const coordinates = e.features[0].geometry.coordinates.slice();
+                    const properties = e.features[0].properties;
+                    const categoryIcon = properties.category === 'C' ? '🏛️' : properties.category === 'N' ? '🌿' : '🏞️';
+
+                    new maplibregl.Popup()
+                        .setLngLat(coordinates)
+                        .setHTML(`
+                            <div style="text-align: center;">
+                                <h3 style="margin: 0 0 10px 0; color: #87CEEB;">${properties.name}</h3>
+                                <p style="margin: 5px 0;"><strong>${categoryIcon} Category:</strong> ${properties.category === 'C' ? 'Cultural' : properties.category === 'N' ? 'Natural' : 'Mixed'}</p>
+                                <p style="margin: 5px 0;"><strong>🌍 Country:</strong> ${properties.country}</p>
+                                <p style="margin: 10px 0; font-size: 14px; line-height: 1.4;">${properties.description}</p>
+                            </div>
+                        `)
+                        .addTo(map);
+                });
+
+                // Add fade-in animation for markers
+                map.setPaintProperty('sites-layer', 'circle-opacity', 0);
+                let opacity = 0;
+                const fadeIn = setInterval(() => {
+                    opacity += 0.05;
+                    if (opacity >= 0.9) {
+                        opacity = 0.9;
+                        clearInterval(fadeIn);
+                    }
+                    map.setPaintProperty('sites-layer', 'circle-opacity', opacity);
+                }, 50);
+
+                // Change cursor on hover
+                map.on('mouseenter', 'sites-layer', (e) => {
+                    map.getCanvas().style.cursor = 'pointer';
+                    const id = e.features[0].properties.id;
+                    map.setFilter('sites-hover-layer', ['==', ['get', 'id'], id]);
+                });
+                map.on('mouseleave', 'sites-layer', () => {
+                    map.getCanvas().style.cursor = '';
+                    map.setFilter('sites-hover-layer', ['==', ['get', 'id'], -1]);
+                });
+
+                // Menu toggle
+                document.getElementById('toggle-menu').addEventListener('click', () => {
+                    const menu = document.getElementById('menu');
+                    const isOpen = menu.style.transform === 'translateX(0%)';
+                    menu.style.transform = isOpen ? 'translateX(-100%)' : 'translateX(0%)';
+                });
+
+                // Apply filter
+                document.getElementById('apply').addEventListener('click', () => {
+                    const selectedTypes = [];
+                    if (document.getElementById('cultural').checked) selectedTypes.push('C');
+                    if (document.getElementById('natural').checked) selectedTypes.push('N');
+                    if (document.getElementById('mixed').checked) selectedTypes.push('M');
+
+                    const filters = [];
+                    if (selectedTypes.length > 0) filters.push(['in', 'category', ...selectedTypes]);
+
+                    const inDanger = document.getElementById('in-danger').checked;
+                    if (!inDanger) {
+                        filters.push(['==', 'danger', '0']); // Show only not in danger
+                    } // If checked, show all, including in danger
+
+                    const filter = filters.length > 1 ? ['all', ...filters] : (filters.length === 1 ? filters[0] : ['==', 'category', '']);
+                    map.setFilter('sites-layer', filter);
+                    map.setFilter('sites-hover-layer', ['==', 'id', -1]); // Reset hover
+                });
+            });
+    });
+</script>
+</body>
+</html>
