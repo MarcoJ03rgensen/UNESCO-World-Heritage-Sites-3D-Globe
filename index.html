@@ -285,9 +285,9 @@
                     if (selectedTypes.length > 0) filters.push(['in', 'category', ...selectedTypes]);
 
                     const inDanger = document.getElementById('in-danger').checked;
-                    if (!inDanger) {
-                        filters.push(['==', 'danger', '0']); // Show only not in danger
-                    } // If checked, show all, including in danger
+                    if (inDanger) {
+                        filters.push(['==', 'danger', '1']);
+                    }
 
                     const filter = filters.length > 1 ? ['all', ...filters] : (filters.length === 1 ? filters[0] : ['==', 'category', '']);
                     map.setFilter('sites-layer', filter);
