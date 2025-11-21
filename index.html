@@ -268,7 +268,7 @@
     const map = new maplibregl.Map({
         container: 'map',
         style: 'https://demotiles.maplibre.org/style.json',
-        zoom: 2,
+        zoom: 0,
         center: [0, 0],
         attributionControl: true
     });
@@ -280,6 +280,13 @@
 
         // Add navigation control for zoom/pan on mobile
         map.addControl(new maplibregl.NavigationControl(), 'top-right');
+
+            // Ensure the initial view is fully zoomed out so the entire globe is visible
+            try {
+                map.jumpTo({ center: [0, 0], zoom: 0, pitch: 0, bearing: 0 });
+            } catch (e) {
+                try { map.easeTo({ center: [0, 0], zoom: 0, pitch: 0, bearing: 0, duration: 0 }); } catch (err) { }
+            }
 
         // Enhance globe surface colors for clarity
         if (map.getLayer('background')) {
