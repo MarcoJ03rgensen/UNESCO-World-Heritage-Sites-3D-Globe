@@ -211,6 +211,110 @@
                 cursor: pointer !important;
             }
         }
+        /* AI Chat (glassmorphism sidebar) */
+        :root {
+            --glass-bg-light: rgba(255,255,255,0.08);
+            --glass-bg-dark: rgba(10,10,12,0.28);
+            --glass-border: rgba(255,255,255,0.14);
+            --chat-width: 380px;
+        }
+
+        /* adapt to prefers-color-scheme */
+        @media (prefers-color-scheme: dark) {
+            :root { --glass-bg: var(--glass-bg-dark); }
+        }
+        @media (prefers-color-scheme: light) {
+            :root { --glass-bg: var(--glass-bg-light); }
+        }
+
+        #ai-chat {
+            position: fixed;
+            right: auto;
+            left: auto; /* will be set by JS to center under controls */
+            top: 120px; /* adjusted by JS when controls exist */
+            z-index: 1005;
+            display: flex;
+            align-items: flex-start;
+            gap: 8px;
+            pointer-events: auto;
+            will-change: left, top;
+        }
+
+        /* Toggle styled like the left menu toggle */
+        #ai-chat-toggle {
+            width: 44px;
+            height: 44px;
+            border-radius: 8px;
+            background: rgba(255,255,255,0.08);
+            border: 1px solid rgba(255,255,255,0.18);
+            backdrop-filter: blur(10px);
+            color: white;
+            font-size: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 6px 18px rgba(0,0,0,0.18);
+            cursor: pointer;
+        }
+
+        /* Panel container (hidden by default) */
+        #ai-chat-panel {
+            width: 0;
+            max-width: var(--chat-width);
+            height: 72vh;
+            border-radius: 12px;
+            overflow: hidden;
+            transition: width 280ms ease, opacity 200ms ease;
+            opacity: 0;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.45);
+            display: flex;
+            flex-direction: column;
+            background: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+            backdrop-filter: blur(14px) saturate(120%);
+        }
+
+        #ai-chat.open #ai-chat-panel { width: var(--chat-width); opacity: 1; }
+
+        .ai-chat-header {
+            height: 56px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 12px;
+            color: white;
+            font-weight: 600;
+            border-bottom: 1px solid rgba(255,255,255,0.04);
+            background: linear-gradient(180deg, rgba(255,255,255,0.02), transparent);
+        }
+
+        .ai-chat-header button {
+            background: transparent;
+            border: none;
+            color: white;
+            font-size: 20px;
+            cursor: pointer;
+            width: 40px;
+            height: 40px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 8px;
+        }
+
+        #ai-chat-panel iframe {
+            width: 100%;
+            height: calc(100% - 56px);
+            border: none;
+            background: transparent;
+        }
+
+        /* Mobile: full height bottom sheet */
+        @media (max-width: 700px) {
+            #ai-chat { right: 10px; left: 10px; top: auto; bottom: 14px; justify-content: flex-end; }
+            #ai-chat-panel { width: 100%; max-width: 100%; height: 56vh; border-radius: 12px; }
+            #ai-chat.open #ai-chat-panel { width: calc(100% - 72px); }
+        }
     </style>
 </head>
 <body>
@@ -264,6 +368,17 @@
 <a href="https://marcoj03rgensen.github.io/" target="_blank" id="custom-logo" aria-label="Unavngivet" style="position: absolute; top: 8px; right: 10px; width: 44px; height: 44px; text-decoration: none; z-index: 1001; display:flex; align-items:center; justify-content:center;">
     <img src="marco-jørgensen.png" alt="Unavngivet" style="width: 100%; height: 100%; border-radius: 50%; object-fit:cover; box-shadow: 0 4px 12px rgba(0,0,0,0.25); border: 1px solid rgba(255,255,255,0.18);">
 </a>
+<!-- AI Chat (glassmorphism toggle + panel) -->
+<div id="ai-chat" aria-hidden="true">
+    <button id="ai-chat-toggle" title="Open AI Chat">💬</button>
+    <div id="ai-chat-panel" role="dialog" aria-label="AI Chat Assistant">
+        <div class="ai-chat-header">
+            <span>Archaeology AI Assistant</span>
+            <button id="ai-chat-close" aria-label="Close chat">×</button>
+        </div>
+        <iframe src="https://archaeology.marcobirkedahl.workers.dev" title="Archaeology AI Assistant"></iframe>
+    </div>
+</div>
 <script>
     const map = new maplibregl.Map({
         container: 'map',
@@ -535,6 +650,121 @@
                 });
             });
     });
+</script>
+<script>
+/* AI chat toggle and positioning logic */
+(function(){
+    const aiChat = document.getElementById('ai-chat');
+    const toggle = document.getElementById('ai-chat-toggle');
+    const closeBtn = document.getElementById('ai-chat-close');
+
+    const aiPanel = document.getElementById('ai-chat-panel');
+    function setChatTopFromControls(){
+        if (!aiChat) return;
+
+        // On small screens let CSS handle bottom-sheet layout
+        if (window.innerWidth <= 700) {
+            aiChat.style.left = '';
+            aiChat.style.right = '';
+            aiChat.style.top = '';
+            aiChat.style.transform = '';
+            return;
+        }
+
+        // Prefer anchoring to the left menu toggle if present and visible
+        const leftAnchor = document.getElementById('toggle-menu');
+        const rightAnchor = document.querySelector('.maplibregl-ctrl-top-right');
+        let anchor = null;
+        if (leftAnchor && leftAnchor.offsetParent !== null) anchor = leftAnchor;
+        else if (rightAnchor) anchor = rightAnchor;
+
+        if (anchor) {
+            const rect = anchor.getBoundingClientRect();
+            // place the toggle just below the anchor (match same left coordinate)
+            const top = Math.max(8, rect.bottom + 8);
+            aiChat.style.top = `${top}px`;
+
+            // align left edge to the anchor so it stacks like the screenshot
+            aiChat.style.left = `${Math.round(rect.left)}px`;
+            aiChat.style.transform = 'none';
+            aiChat.style.right = 'auto';
+
+            // remember values for panel placement when opening
+            aiChat.dataset.anchorLeft = String(Math.round(rect.left));
+            aiChat.dataset.anchorTop = String(Math.round(rect.top));
+            aiChat.dataset.anchorWidth = String(Math.round(rect.width));
+            aiChat.dataset.anchorHeight = String(Math.round(rect.height));
+        } else {
+            // fallback to right side
+            aiChat.style.left = '';
+            aiChat.style.right = '10px';
+            aiChat.style.top = '120px';
+            aiChat.style.transform = '';
+        }
+    }
+
+    function openChat(){
+        // compute panel placement so it fully appears on screen
+        const panelWidth = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--chat-width')) || 380;
+        const anchorLeft = parseInt(aiChat.dataset.anchorLeft);
+        const anchorTop = parseInt(aiChat.dataset.anchorTop);
+        const anchorWidth = parseInt(aiChat.dataset.anchorWidth) || (toggle ? toggle.offsetWidth : 44);
+
+        // default top aligned to anchor top
+        let panelTop = (anchorTop || 120);
+
+        // place panel to the right of the toggle/menu anchor when possible
+        let panelLeft = (anchorLeft || (window.innerWidth - panelWidth - 10)) + anchorWidth + 8;
+
+        // if panel would overflow to the right, clamp to viewport and try placing left of anchor
+        const maxLeft = Math.max(8, window.innerWidth - panelWidth - 8);
+        if (panelLeft > maxLeft) {
+            // place left of anchor if space
+            const tryLeft = (anchorLeft || 8) - panelWidth - 8;
+            if (tryLeft >= 8) panelLeft = tryLeft; else panelLeft = maxLeft;
+        }
+
+        // apply fixed positioning to the panel so it always fully appears
+        if (aiPanel) {
+            aiPanel.style.position = 'fixed';
+            aiPanel.style.left = `${Math.round(panelLeft)}px`;
+            aiPanel.style.top = `${Math.round(panelTop)}px`;
+            aiPanel.style.transform = 'none';
+            aiPanel.style.width = `${panelWidth}px`;
+        }
+
+        aiChat.classList.add('open');
+        aiChat.setAttribute('aria-hidden', 'false');
+        toggle.setAttribute('aria-expanded', 'true');
+    }
+    function closeChat(){
+        // clear panel inline placement so CSS fallback applies
+        if (aiPanel) {
+            aiPanel.style.left = '';
+            aiPanel.style.top = '';
+            aiPanel.style.position = '';
+            aiPanel.style.transform = '';
+            aiPanel.style.width = '';
+        }
+
+        aiChat.classList.remove('open');
+        aiChat.setAttribute('aria-hidden', 'true');
+        toggle.setAttribute('aria-expanded', 'false');
+    }
+
+    if (toggle) toggle.addEventListener('click', () => {
+        if (!aiChat) return;
+        if (aiChat.classList.contains('open')) closeChat(); else openChat();
+    });
+    if (closeBtn) closeBtn.addEventListener('click', closeChat);
+
+    window.addEventListener('resize', setChatTopFromControls);
+    // initial alignment after controls are added
+    setTimeout(setChatTopFromControls, 700);
+    // watch for map controls being inserted later
+    const mo = new MutationObserver(() => setChatTopFromControls());
+    mo.observe(document.body, { childList: true, subtree: true });
+})();
 </script>
 </body>
 </html>
