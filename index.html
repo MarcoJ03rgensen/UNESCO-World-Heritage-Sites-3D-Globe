@@ -22,6 +22,46 @@
         html, body { height: 100%; }
         /* make map occupy the full viewport and avoid clipping on mobile */
         #map { position: fixed; inset: 0; width: 100%; height: 100%; z-index: 0; }
+
+        /* ── 9:16 Instagram Reel frame — active during dev preview / recording ── */
+        body.reel-mode #map {
+            left: 50%;
+            width: calc(100vh * 9 / 16);
+            transform: translateX(-50%);
+        }
+        body.reel-mode #watermark-canvas {
+            width: calc(100vh * 9 / 16) !important;
+            left: 50%;
+            transform: translateX(-50%);
+        }
+        #reel-pillar-l, #reel-pillar-r {
+            display: none;
+            position: fixed;
+            top: 0; bottom: 0;
+            background: #000;
+            z-index: 4999;
+            pointer-events: none;
+        }
+        body.reel-mode #reel-pillar-l,
+        body.reel-mode #reel-pillar-r { display: block; }
+        body.reel-mode #reel-pillar-l { left: 0; width: calc(50vw - 100vh * 9 / 32); }
+        body.reel-mode #reel-pillar-r { right: 0; width: calc(50vw - 100vh * 9 / 32); }
+
+        /* ── Hide all UI chrome during reel mode (preview & recording) ── */
+        body.reel-mode #menu,
+        body.reel-mode #toggle-menu,
+        body.reel-mode #citation,
+        body.reel-mode #custom-logo,
+        body.reel-mode #site-toast,
+        body.reel-mode #rec-indicator,
+        body.reel-mode .maplibregl-control-container { display: none !important; }
+
+        /* Constrain title card within the 9:16 reel column */
+        body.reel-mode #site-title-card {
+            max-width: calc(100vh * 9 / 16 - 40px);
+            bottom: 80px;
+        }
+
         @keyframes skyShift {
             0% { background-position: 0% 50%; }
             50% { background-position: 100% 50%; }
@@ -98,6 +138,9 @@
             max-height: 45vh;
             overflow-y: auto;
             -webkit-overflow-scrolling: touch;
+            /* mobile-friendly font sizes */
+            font-size: 14px;
+            line-height: 1.5;
             text-shadow: 0 1px 2px rgba(0,0,0,0.5);
         }
 
@@ -114,18 +157,36 @@
 
         /* Larger, clearer close button for popups */
         .maplibregl-popup-close-button {
-            width: 38px !important;
-            height: 38px !important;
-            line-height: 38px !important;
-            font-size: 20px !important;
+            width: 44px !important;
+            height: 44px !important;
+            line-height: 44px !important;
+            font-size: 22px !important;
             border-radius: 8px !important;
-            top: 8px !important;
-            right: 8px !important;
-            background: rgba(255,255,255,0.06) !important;
+            top: 6px !important;
+            right: 6px !important;
+            background: rgba(255,255,255,0.12) !important;
             color: white !important;
             text-align: center !important;
             padding: 0 !important;
             box-shadow: 0 4px 12px rgba(0,0,0,0.3) !important;
+        }
+
+        /* Mobile popup improvements */
+        @media (max-width: 600px) {
+            .maplibregl-popup-content {
+                max-width: calc(100vw - 40px) !important;
+                max-height: 55vh !important;
+                padding: 22px 14px 14px 14px !important;
+                font-size: 15px !important;
+                border-radius: 14px !important;
+            }
+            .maplibregl-popup-content h3 {
+                font-size: 17px !important;
+            }
+            /* Anchor popup to center on mobile */
+            .maplibregl-popup {
+                max-width: calc(100vw - 20px) !important;
+            }
         }
           /* Ensure the close button text is visible and centered (we set the glyph in JS) */
           .maplibregl-popup-close-button { text-indent: 0 !important; }
@@ -184,6 +245,42 @@
             .maplibregl-ctrl-bottom-right { right: 8px !important; bottom: 8px !important; }
             /* make sure menu toggle doesn't overlap citation on very small screens */
             #toggle-menu { top: 12px !important; left: 12px !important; }
+
+            /* Full-width filter menu on phones */
+            #menu {
+                width: calc(100vw - 24px) !important;
+                max-width: 320px !important;
+                top: 8px !important;
+                left: 8px !important;
+                padding: 16px !important;
+                font-size: 16px !important;
+            }
+            #menu label {
+                display: inline-flex;
+                align-items: center;
+                gap: 8px;
+                padding: 6px 0;
+                font-size: 16px;
+                min-height: 44px;
+            }
+            #menu input[type="checkbox"] {
+                width: 22px;
+                height: 22px;
+                margin: 0;
+            }
+            #apply {
+                width: 100% !important;
+                padding: 14px 15px !important;
+                font-size: 16px !important;
+                min-height: 48px !important;
+                margin-top: 12px !important;
+            }
+            /* Shift toggle button when menu opens */
+            #menu.open + #toggle-menu {
+                left: calc(8px + min(calc(100vw - 24px), 320px) + 8px) !important;
+            }
+
+            /* Bigger markers on mobile for easier tapping */
         }
 
         /* Citation toggle for small screens: hide full citation, show compact toggle */
@@ -211,114 +308,275 @@
                 cursor: pointer !important;
             }
         }
-        /* AI Chat (glassmorphism sidebar) */
-        :root {
-            --glass-bg-light: rgba(255,255,255,0.08);
-            --glass-bg-dark: rgba(10,10,12,0.28);
-            --glass-border: rgba(255,255,255,0.14);
-            --chat-width: 380px;
-        }
 
-        /* adapt to prefers-color-scheme */
-        @media (prefers-color-scheme: dark) {
-            :root { --glass-bg: var(--glass-bg-dark); }
-        }
-        @media (prefers-color-scheme: light) {
-            :root { --glass-bg: var(--glass-bg-light); }
-        }
-
-        #ai-chat {
+        /* ─── Developer Settings (hidden by default) ─── */
+        #dev-overlay {
+            display: none;
             position: fixed;
-            right: auto;
-            left: auto; /* will be set by JS to center under controls */
-            top: 120px; /* adjusted by JS when controls exist */
-            z-index: 1005;
-            display: flex;
-            align-items: flex-start;
-            gap: 8px;
-            pointer-events: auto;
-            will-change: left, top;
-        }
-
-        /* Toggle styled like the left menu toggle */
-        #ai-chat-toggle {
-            width: 44px;
-            height: 44px;
-            border-radius: 8px;
-            background: rgba(255,255,255,0.08);
-            border: 1px solid rgba(255,255,255,0.18);
-            backdrop-filter: blur(10px);
-            color: white;
-            font-size: 20px;
-            display: flex;
-            align-items: center;
+            inset: 0;
+            z-index: 9999;
+            background: rgba(0,0,0,0.65);
+            backdrop-filter: blur(8px);
             justify-content: center;
-            box-shadow: 0 6px 18px rgba(0,0,0,0.18);
-            cursor: pointer;
-        }
-
-        /* Panel container (hidden by default) */
-        #ai-chat-panel {
-            width: 0;
-            max-width: var(--chat-width);
-            height: 72vh;
-            border-radius: 12px;
-            overflow: hidden;
-            transition: width 280ms ease, opacity 200ms ease;
-            opacity: 0;
-            box-shadow: 0 20px 50px rgba(0,0,0,0.45);
-            display: flex;
-            flex-direction: column;
-            background: var(--glass-bg);
-            border: 1px solid var(--glass-border);
-            backdrop-filter: blur(14px) saturate(120%);
-        }
-
-        #ai-chat.open #ai-chat-panel { width: var(--chat-width); opacity: 1; }
-
-        .ai-chat-header {
-            height: 56px;
-            display: flex;
             align-items: center;
-            justify-content: space-between;
-            padding: 0 12px;
-            color: white;
-            font-weight: 600;
-            border-bottom: 1px solid rgba(255,255,255,0.04);
-            background: linear-gradient(180deg, rgba(255,255,255,0.02), transparent);
         }
+        #dev-overlay.active { display: flex; }
 
-        .ai-chat-header button {
-            background: transparent;
-            border: none;
-            color: white;
+        #dev-panel {
+            width: 460px;
+            max-width: calc(100vw - 32px);
+            max-height: 90vh;
+            overflow-y: auto;
+            background: rgba(12,12,18,0.92);
+            backdrop-filter: blur(20px) saturate(140%);
+            border: 1px solid rgba(255,255,255,0.12);
+            border-radius: 16px;
+            padding: 28px 24px 24px;
+            color: #eee;
+            box-shadow: 0 30px 80px rgba(0,0,0,0.6);
+            font-family: 'Inter', sans-serif;
+        }
+        #dev-panel h2 {
+            margin: 0 0 6px;
             font-size: 20px;
-            cursor: pointer;
-            width: 40px;
-            height: 40px;
+            color: #87CEEB;
+        }
+        #dev-panel .dev-subtitle {
+            font-size: 12px;
+            color: rgba(255,255,255,0.45);
+            margin-bottom: 18px;
+        }
+        #dev-panel label {
+            display: block;
+            font-size: 13px;
+            margin-bottom: 4px;
+            color: rgba(255,255,255,0.7);
+        }
+        #dev-panel select, #dev-panel input[type="number"], #dev-panel input[type="text"] {
+            width: 100%;
+            padding: 10px 12px;
+            border-radius: 8px;
+            border: 1px solid rgba(255,255,255,0.15);
+            background: rgba(255,255,255,0.06);
+            color: white;
+            font-size: 14px;
+            font-family: 'Inter', sans-serif;
+            margin-bottom: 14px;
+            box-sizing: border-box;
+            -webkit-appearance: none;
+            appearance: none;
+        }
+        #dev-panel input[type="text"]::placeholder { color: rgba(255,255,255,0.3); }
+        #dev-panel select option { background: #1a1a2e; color: #eee; }
+        .dev-section { margin-bottom: 16px; }
+        .dev-section-title {
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 1.2px;
+            color: rgba(255,255,255,0.35);
+            margin-bottom: 10px;
+            padding-bottom: 6px;
+            border-bottom: 1px solid rgba(255,255,255,0.06);
+        }
+        /* inline checkbox labels inside dev panel */
+        #dev-panel .dev-check {
             display: inline-flex;
             align-items: center;
-            justify-content: center;
-            border-radius: 8px;
+            gap: 6px;
+            font-size: 13px;
+            margin-right: 14px;
+            margin-bottom: 8px;
+            color: rgba(255,255,255,0.7);
+            cursor: pointer;
         }
-
-        #ai-chat-panel iframe {
-            width: 100%;
-            height: calc(100% - 56px);
+        #dev-panel .dev-check input { width: 16px; height: 16px; margin: 0; accent-color: #87CEEB; }
+        #dev-panel .btn-row { display: flex; gap: 10px; margin-top: 8px; }
+        #dev-panel .btn-row-3 { display: flex; gap: 8px; margin-top: 8px; }
+        #dev-panel button {
+            flex: 1;
+            padding: 12px 16px;
             border: none;
-            background: transparent;
+            border-radius: 10px;
+            font-weight: 600;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-family: 'Inter', sans-serif;
+        }
+        #dev-panel button:active { transform: scale(0.97); }
+        #btn-record {
+            background: linear-gradient(135deg, #ff4757, #ff6b81);
+            color: white;
+        }
+        #btn-record:hover { filter: brightness(1.1); }
+        #btn-record:disabled, #btn-preview:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            filter: none;
+        }
+        #btn-preview {
+            background: linear-gradient(135deg, #3742fa, #5352ed);
+            color: white;
+        }
+        #btn-preview:hover { filter: brightness(1.1); }
+        #btn-dev-close {
+            background: rgba(255,255,255,0.08);
+            color: rgba(255,255,255,0.7);
+            border: 1px solid rgba(255,255,255,0.12);
+        }
+        #btn-dev-close:hover { background: rgba(255,255,255,0.14); }
+
+        /* progress bar */
+        #rec-progress-wrap {
+            display: none;
+            margin-top: 16px;
+        }
+        #rec-progress-wrap.active { display: block; }
+        #rec-progress-bar {
+            height: 6px;
+            border-radius: 3px;
+            background: rgba(255,255,255,0.1);
+            overflow: hidden;
+        }
+        #rec-progress-fill {
+            height: 100%;
+            width: 0%;
+            background: linear-gradient(90deg, #ff4757, #ffa502);
+            border-radius: 3px;
+            transition: width 0.3s;
+        }
+        #rec-status {
+            font-size: 12px;
+            color: rgba(255,255,255,0.5);
+            margin-top: 6px;
+            text-align: center;
         }
 
-        /* Mobile: full height bottom sheet */
-        @media (max-width: 700px) {
-            #ai-chat { right: 10px; left: 10px; top: auto; bottom: 14px; justify-content: flex-end; }
-            #ai-chat-panel { width: 100%; max-width: 100%; height: 56vh; border-radius: 12px; }
-            #ai-chat.open #ai-chat-panel { width: calc(100% - 72px); }
+        /* Recording indicator */
+        #rec-indicator {
+            display: none;
+            position: fixed;
+            top: 16px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 10000;
+            padding: 8px 18px;
+            border-radius: 24px;
+            background: rgba(255,0,0,0.75);
+            backdrop-filter: blur(8px);
+            color: white;
+            font-size: 13px;
+            font-weight: 600;
+            font-family: 'Inter', sans-serif;
+            animation: recPulse 1.2s ease-in-out infinite;
+            pointer-events: none;
+        }
+        #rec-indicator.active { display: block; }
+        @keyframes recPulse {
+            0%,100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        /* watermark preview */
+        #watermark-canvas {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100vw; height: 100vh;
+            pointer-events: none;
+            z-index: 9998;
+            display: none;
+        }
+        #watermark-canvas.active { display: block; }
+
+        /* Selected-from-map toast */
+        #site-toast {
+            display: none;
+            position: fixed;
+            bottom: 80px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 10001;
+            padding: 10px 20px;
+            border-radius: 12px;
+            background: rgba(55,66,250,0.85);
+            backdrop-filter: blur(10px);
+            color: white;
+            font-size: 13px;
+            font-weight: 600;
+            font-family: 'Inter', sans-serif;
+            box-shadow: 0 8px 30px rgba(0,0,0,0.4);
+            pointer-events: none;
+            transition: opacity 0.4s;
+            max-width: calc(100vw - 40px);
+            text-align: center;
+        }
+        #site-toast.show { display: block; opacity: 1; }
+        #site-toast.fade { opacity: 0; }
+
+        @media (max-width: 600px) {
+            #dev-panel { padding: 20px 16px 18px; }
+            #dev-panel h2 { font-size: 18px; }
+        }
+
+        /* Satellite toggle row in filter menu */
+        #satellite-toggle-row {
+            margin-top: 10px;
+            padding-top: 10px;
+            border-top: 1px solid rgba(255,255,255,0.12);
+        }
+
+        /* Cinematic site title card — shown during animation finale */
+        #site-title-card {
+            display: none;
+            position: fixed;
+            bottom: 72px;
+            left: 50%;
+            transform: translateX(-50%) translateY(18px);
+            z-index: 9990;
+            padding: 18px 30px 16px;
+            border-radius: 18px;
+            background: rgba(0,0,0,0.52);
+            backdrop-filter: blur(24px) saturate(160%);
+            border: 1px solid rgba(255,255,255,0.16);
+            color: white;
+            text-align: center;
+            pointer-events: none;
+            min-width: 240px;
+            max-width: calc(100vw - 48px);
+            box-shadow: 0 24px 64px rgba(0,0,0,0.55);
+            opacity: 0;
+            transition: opacity 0.85s ease, transform 0.85s ease;
+            font-family: 'Inter', sans-serif;
+        }
+        #site-title-card.show {
+            opacity: 1;
+            transform: translateX(-50%) translateY(0);
+        }
+        #site-title-card .card-icon { font-size: 28px; line-height: 1; margin-bottom: 8px; }
+        #site-title-card .card-name {
+            font-size: 20px;
+            font-weight: 600;
+            margin-bottom: 5px;
+            color: white;
+            line-height: 1.3;
+        }
+        #site-title-card .card-meta {
+            font-size: 12px;
+            color: rgba(255,255,255,0.58);
+            letter-spacing: 0.4px;
+            text-transform: uppercase;
+        }
+        @media (max-width: 600px) {
+            #site-title-card { bottom: 90px; padding: 14px 22px 12px; }
+            #site-title-card .card-name { font-size: 16px; }
         }
     </style>
 </head>
 <body>
 <div id="map"></div>
+<!-- Reel pillarboxes — cover left/right outside 9:16 during dev preview/recording -->
+<div id="reel-pillar-l"></div>
+<div id="reel-pillar-r"></div>
 <div id="menu" style="position: absolute; top: 10px; left: 10px; padding: 15px; border-radius: 10px; z-index: 1000; box-shadow: 0 8px 32px rgba(0,0,0,0.3);">
     <h4 style="margin-top: 0; font-weight: 600;">Filter Sites</h4>
     <strong>Type:</strong><br>
@@ -327,6 +585,12 @@
     <label><input type="checkbox" id="mixed" checked> Mixed</label><br>
     <strong>Status:</strong><br>
     <label><input type="checkbox" id="in-danger" checked> In Danger</label><br>
+    <div id="satellite-toggle-row">
+        <strong>Map style:</strong><br>
+        <label><input type="radio" name="map-style" value="both" checked> 🗺️+🛰️ Both</label><br>
+        <label><input type="radio" name="map-style" value="satellite"> 🛰️ Satellite only</label><br>
+        <label><input type="radio" name="map-style" value="vector"> 🗺️ Vector only</label>
+    </div>
     <button id="apply" style="margin-top: 15px; padding: 8px 15px; background: linear-gradient(45deg, #06768d, #055a6a); color: white; border: none; border-radius: 5px; cursor: pointer; font-weight: 600;">Apply</button>
 </div>
 <button id="toggle-menu" style="position: absolute; top: 10px; z-index: 1001; font-size: 20px;" aria-expanded="false">☰</button>
@@ -368,24 +632,88 @@
 <a href="https://marcoj03rgensen.github.io/" target="_blank" id="custom-logo" aria-label="Unavngivet" style="position: absolute; top: 8px; right: 10px; width: 44px; height: 44px; text-decoration: none; z-index: 1001; display:flex; align-items:center; justify-content:center;">
     <img src="marco-jørgensen.png" alt="Unavngivet" style="width: 100%; height: 100%; border-radius: 50%; object-fit:cover; box-shadow: 0 4px 12px rgba(0,0,0,0.25); border: 1px solid rgba(255,255,255,0.18);">
 </a>
-<!-- AI Chat (glassmorphism toggle + panel) -->
-<div id="ai-chat" aria-hidden="true">
-    <button id="ai-chat-toggle" title="Open AI Chat">💬</button>
-    <div id="ai-chat-panel" role="dialog" aria-label="AI Chat Assistant">
-        <div class="ai-chat-header">
-            <span>Archaeology AI Assistant</span>
-            <button id="ai-chat-close" aria-label="Close chat">×</button>
+
+<!-- Developer settings overlay (unlocked by typing RECORD) -->
+<div id="dev-overlay">
+    <div id="dev-panel">
+        <h2>🎬 Developer Settings</h2>
+        <div class="dev-subtitle">Unlocked &middot; Type RECORD anywhere to toggle &middot; Click any dot on the map to select it</div>
+
+        <div class="dev-section">
+            <div class="dev-section-title">Target Site</div>
+            <label for="rec-site-search">Search</label>
+            <input type="text" id="rec-site-search" placeholder="Type to filter sites…">
+            <label for="rec-site">Heritage Site</label>
+            <select id="rec-site"><option value="">Loading sites…</option></select>
+            <div style="font-size:11px;color:rgba(255,255,255,0.35);margin-top:-8px;margin-bottom:12px;">💡 Or close this panel and click any dot on the map</div>
         </div>
-        <iframe src="https://archaeology.marcobirkedahl.workers.dev" title="Archaeology AI Assistant"></iframe>
+
+        <div class="dev-section">
+            <div class="dev-section-title">Recording Dot Visibility</div>
+            <label class="dev-check"><input type="checkbox" id="rec-show-cultural" checked> Cultural</label>
+            <label class="dev-check"><input type="checkbox" id="rec-show-natural" checked> Natural</label>
+            <label class="dev-check"><input type="checkbox" id="rec-show-mixed" checked> Mixed</label>
+            <label class="dev-check"><input type="checkbox" id="rec-show-danger-only"> In Danger only</label>
+        </div>
+
+        <div class="dev-section">
+            <div class="dev-section-title">Export Settings</div>
+            <label for="rec-resolution">Resolution</label>
+            <select id="rec-resolution">
+                <option value="1080">1080p (1080 × 1920)</option>
+                <option value="2160" selected>4K (2160 × 3840)</option>
+                <option value="4320">8K (4320 × 7680)</option>
+            </select>
+
+            <label for="rec-fps">Frame Rate</label>
+            <select id="rec-fps">
+                <option value="30">30 fps</option>
+                <option value="60" selected>60 fps</option>
+            </select>
+
+            <label for="rec-duration">Duration (seconds)</label>
+            <input type="number" id="rec-duration" value="14" min="4" max="60" step="1">
+        </div>
+
+        <div class="btn-row-3">
+            <button id="btn-preview">👁 Preview</button>
+            <button id="btn-record">⏺ Record</button>
+            <button id="btn-dev-close">Close</button>
+        </div>
+
+        <div id="rec-progress-wrap">
+            <div id="rec-progress-bar"><div id="rec-progress-fill"></div></div>
+            <div id="rec-status">Preparing…</div>
+        </div>
     </div>
 </div>
+
+<!-- Recording indicator pill -->
+<div id="rec-indicator">⏺ REC</div>
+
+<!-- Watermark overlay canvas -->
+<canvas id="watermark-canvas"></canvas>
+
+<!-- Cinematic site title card -->
+<div id="site-title-card">
+    <div class="card-icon" id="card-icon">🏛️</div>
+    <div class="card-name" id="card-name"></div>
+    <div class="card-meta" id="card-meta"></div>
+</div>
+
+<!-- Toast for map-click site selection -->
+<div id="site-toast"></div>
+
 <script>
     const map = new maplibregl.Map({
         container: 'map',
         style: 'https://demotiles.maplibre.org/style.json',
         zoom: 0,
         center: [0, 0],
-        attributionControl: true
+        attributionControl: true,
+        maxTileCacheSize: 3000,
+        preserveDrawingBuffer: true,
+        antialias: true
     });
 
     map.on('style.load', () => {
@@ -427,32 +755,81 @@
             map.setPaintProperty('admin-1-boundaries', 'line-width', 1);
         }
 
-        // Load CSV data
-        fetch('https://ihp-wins.unesco.org/dataset/unesco-world-heritage-sites/resource/2f46f6b2-45f9-402b-ace9-1e02c9c97a3d/download/whc-sites-2025.csv')
-            .then(response => response.text())
-            .then(data => {
-                const parsed = Papa.parse(data, { header: true, skipEmptyLines: true });
-                const sites = [];
+        // ── ESRI satellite imagery ──
+        map.addSource('esri-satellite', {
+            type: 'raster',
+            tiles: ['https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'],
+            tileSize: 256,
+            maxzoom: 19,
+            attribution: 'Imagery &copy; Esri &mdash; Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, GIS users'
+        });
+        map.addLayer({
+            id: 'satellite-layer',
+            type: 'raster',
+            source: 'esri-satellite',
+            paint: {
+                'raster-opacity': 1,           // always visible at all zoom levels
+                'raster-fade-duration': 0,     // instant tile appearance — no per-tile crossfade
+                'raster-saturation': 0.15,
+                'raster-contrast': 0.08
+            }
+        }); // sits below sites-layer which is added later
 
-                parsed.data.forEach((site, index) => {
-                    if (site.latitude && site.longitude && !isNaN(parseFloat(site.latitude)) && !isNaN(parseFloat(site.longitude))) {
-                        sites.push({
-                            type: 'Feature',
-                            properties: {
-                                id: index,
-                                name: site.name_en,
-                                category: site.category_short,
-                                danger: site.danger,
-                                country: site.states_name_en,
-                                description: site.short_description_en
-                            },
-                            geometry: {
-                                type: 'Point',
-                                coordinates: [parseFloat(site.longitude), parseFloat(site.latitude)]
-                            }
-                        });
-                    }
-                });
+        // Load CSV data (with localStorage caching for fast reload)
+        const CSV_URL = 'https://ihp-wins.unesco.org/dataset/unesco-world-heritage-sites/resource/2f46f6b2-45f9-402b-ace9-1e02c9c97a3d/download/whc-sites-2025.csv';
+        const CACHE_KEY = '__whs_sites_cache';
+        const CACHE_TS_KEY = '__whs_sites_ts';
+        const CACHE_CSV_KEY = '__whs_csv_cache';
+        const CACHE_MAX_AGE = 24 * 60 * 60 * 1000; // 24 hours
+
+        function parseSitesFromCSV(csvText) {
+            const parsed = Papa.parse(csvText, { header: true, skipEmptyLines: true });
+            const sites = [];
+            parsed.data.forEach((site, index) => {
+                if (site.latitude && site.longitude && !isNaN(parseFloat(site.latitude)) && !isNaN(parseFloat(site.longitude))) {
+                    sites.push({
+                        type: 'Feature',
+                        properties: {
+                            id: index,
+                            name: site.name_en,
+                            category: site.category_short,
+                            danger: site.danger,
+                            country: site.states_name_en,
+                            description: site.short_description_en
+                        },
+                        geometry: {
+                            type: 'Point',
+                            coordinates: [parseFloat(site.longitude), parseFloat(site.latitude)]
+                        }
+                    });
+                }
+            });
+            return sites;
+        }
+
+        // Try loading from localStorage cache first
+        let cachedSites = null;
+        try {
+            const ts = parseInt(localStorage.getItem(CACHE_TS_KEY) || '0');
+            if (Date.now() - ts < CACHE_MAX_AGE) {
+                const raw = localStorage.getItem(CACHE_KEY);
+                if (raw) cachedSites = JSON.parse(raw);
+            }
+        } catch(e) {}
+
+        const siteDataPromise = cachedSites
+            ? Promise.resolve(cachedSites)
+            : fetch(CSV_URL).then(r => r.text()).then(csv => {
+                const sites = parseSitesFromCSV(csv);
+                try {
+                    localStorage.setItem(CACHE_KEY, JSON.stringify(sites));
+                    localStorage.setItem(CACHE_TS_KEY, Date.now().toString());
+                    localStorage.setItem(CACHE_CSV_KEY, csv);
+                } catch(e) {}
+                return sites;
+            });
+
+        siteDataPromise.then(sites => {
 
                 // Add source
                 map.addSource('sites', {
@@ -469,7 +846,7 @@
                     type: 'circle',
                     source: 'sites',
                     paint: {
-                        'circle-radius': 5,
+                        'circle-radius': window.innerWidth <= 600 ? 8 : 5,
                         'circle-color': [
                             'match',
                             ['get', 'category'],
@@ -478,7 +855,7 @@
                             'M', '#2ca02c', // Mixed - green
                             '#9467bd' // Default - purple
                         ],
-                        'circle-stroke-width': 2,
+                        'circle-stroke-width': window.innerWidth <= 600 ? 2.5 : 2,
                         'circle-stroke-color': '#000000',
                         'circle-opacity': 0.9,
                         'circle-stroke-opacity': 0.8,
@@ -492,7 +869,7 @@
                     type: 'circle',
                     source: 'sites',
                     paint: {
-                        'circle-radius': 12,
+                        'circle-radius': window.innerWidth <= 600 ? 16 : 12,
                         'circle-color': [
                             'match',
                             ['get', 'category'],
@@ -647,124 +1024,834 @@
                     const filter = filters.length > 1 ? ['all', ...filters] : (filters.length === 1 ? filters[0] : ['==', 'category', '']);
                     map.setFilter('sites-layer', filter);
                     map.setFilter('sites-hover-layer', ['==', 'id', -1]); // Reset hover
+
+                    // Auto-close filter menu on mobile after applying
+                    if (window.innerWidth <= 600) {
+                        const menu = document.getElementById('menu');
+                        menu.classList.remove('open');
+                        document.getElementById('toggle-menu').setAttribute('aria-expanded', 'false');
+                    }
+                });
+
+                // Resize markers on orientation / viewport change for mobile
+                function updateMarkerSizes() {
+                    const isMobile = window.innerWidth <= 600;
+                    map.setPaintProperty('sites-layer', 'circle-radius', isMobile ? 8 : 5);
+                    map.setPaintProperty('sites-layer', 'circle-stroke-width', isMobile ? 2.5 : 2);
+                    map.setPaintProperty('sites-hover-layer', 'circle-radius', isMobile ? 16 : 12);
+                }
+                window.addEventListener('resize', updateMarkerSizes);
+                window.addEventListener('orientationchange', () => setTimeout(updateMarkerSizes, 200));
+
+                // ── Store sites globally for recorder ──
+                window.__heritageSites = sites;
+
+                // ── Populate recorder dropdown ──
+                window.__populateRecorderDropdown = function(filterText) {
+                    const sel = document.getElementById('rec-site');
+                    if (!sel) return;
+                    const prev = sel.value;
+                    sel.innerHTML = '';
+                    const sorted = sites.slice().sort((a,b) => (a.properties.name||'').localeCompare(b.properties.name||''));
+                    const q = (filterText || '').toLowerCase();
+                    sorted.forEach(s => {
+                        const label = s.properties.name + ' — ' + s.properties.country;
+                        if (q && !label.toLowerCase().includes(q)) return;
+                        const opt = document.createElement('option');
+                        opt.value = JSON.stringify(s.geometry.coordinates);
+                        opt.dataset.name = s.properties.name;
+                        opt.dataset.category = s.properties.category || '';
+                        opt.dataset.country = s.properties.country || '';
+                        opt.textContent = label;
+                        sel.appendChild(opt);
+                    });
+                    // restore previous selection if still present
+                    if (prev) { for (const o of sel.options) { if (o.value === prev) { sel.value = prev; break; } } }
+                };
+                window.__populateRecorderDropdown('');
+
+                // ── Click a dot on the map → select it for recorder ──
+                window.__devMode = false;
+                map.on('click', 'sites-layer', (e) => {
+                    if (!window.__devMode) return; // only when dev panel has been opened at least once
+                    const f = e.features[0];
+                    if (!f) return;
+                    const coords = f.geometry.coordinates.slice();
+                    const name = f.properties.name;
+                    const sel = document.getElementById('rec-site');
+                    if (sel) {
+                        const target = JSON.stringify(coords);
+                        for (const o of sel.options) {
+                            if (o.value === target) { sel.value = target; break; }
+                        }
+                    }
+                    // Show toast
+                    const toast = document.getElementById('site-toast');
+                    if (toast) {
+                        toast.textContent = '🎯 Selected: ' + name;
+                        toast.classList.remove('fade');
+                        toast.classList.add('show');
+                        clearTimeout(toast._tid);
+                        toast._tid = setTimeout(() => { toast.classList.add('fade'); setTimeout(() => toast.classList.remove('show','fade'), 500); }, 2200);
+                    }
                 });
             });
     });
 </script>
+
+<!-- ── Developer Settings: passcode + drone recorder ── -->
 <script>
-/* AI chat toggle and positioning logic */
 (function(){
-    const aiChat = document.getElementById('ai-chat');
-    const toggle = document.getElementById('ai-chat-toggle');
-    const closeBtn = document.getElementById('ai-chat-close');
-
-    const aiPanel = document.getElementById('ai-chat-panel');
-    function setChatTopFromControls(){
-        if (!aiChat) return;
-
-        // On small screens let CSS handle bottom-sheet layout
-        if (window.innerWidth <= 700) {
-            aiChat.style.left = '';
-            aiChat.style.right = '';
-            aiChat.style.top = '';
-            aiChat.style.transform = '';
-            return;
+    /* ── Passcode listener: type RECORD anywhere ── */
+    const PASSCODE = 'RECORD';
+    let buf = '';
+    document.addEventListener('keydown', e => {
+        if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') return;
+        buf += e.key.toUpperCase();
+        if (buf.length > PASSCODE.length) buf = buf.slice(-PASSCODE.length);
+        if (buf === PASSCODE) {
+            buf = '';
+            toggleDevPanel();
         }
-
-        // Prefer anchoring to the left menu toggle if present and visible
-        const leftAnchor = document.getElementById('toggle-menu');
-        const rightAnchor = document.querySelector('.maplibregl-ctrl-top-right');
-        let anchor = null;
-        if (leftAnchor && leftAnchor.offsetParent !== null) anchor = leftAnchor;
-        else if (rightAnchor) anchor = rightAnchor;
-
-        if (anchor) {
-            const rect = anchor.getBoundingClientRect();
-            // place the toggle just below the anchor (match same left coordinate)
-            const top = Math.max(8, rect.bottom + 8);
-            aiChat.style.top = `${top}px`;
-
-            // align left edge to the anchor so it stacks like the screenshot
-            aiChat.style.left = `${Math.round(rect.left)}px`;
-            aiChat.style.transform = 'none';
-            aiChat.style.right = 'auto';
-
-            // remember values for panel placement when opening
-            aiChat.dataset.anchorLeft = String(Math.round(rect.left));
-            aiChat.dataset.anchorTop = String(Math.round(rect.top));
-            aiChat.dataset.anchorWidth = String(Math.round(rect.width));
-            aiChat.dataset.anchorHeight = String(Math.round(rect.height));
-        } else {
-            // fallback to right side
-            aiChat.style.left = '';
-            aiChat.style.right = '10px';
-            aiChat.style.top = '120px';
-            aiChat.style.transform = '';
-        }
-    }
-
-    function openChat(){
-        // compute panel placement so it fully appears on screen
-        const panelWidth = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--chat-width')) || 380;
-        const anchorLeft = parseInt(aiChat.dataset.anchorLeft);
-        const anchorTop = parseInt(aiChat.dataset.anchorTop);
-        const anchorWidth = parseInt(aiChat.dataset.anchorWidth) || (toggle ? toggle.offsetWidth : 44);
-
-        // default top aligned to anchor top
-        let panelTop = (anchorTop || 120);
-
-        // place panel to the right of the toggle/menu anchor when possible
-        let panelLeft = (anchorLeft || (window.innerWidth - panelWidth - 10)) + anchorWidth + 8;
-
-        // if panel would overflow to the right, clamp to viewport and try placing left of anchor
-        const maxLeft = Math.max(8, window.innerWidth - panelWidth - 8);
-        if (panelLeft > maxLeft) {
-            // place left of anchor if space
-            const tryLeft = (anchorLeft || 8) - panelWidth - 8;
-            if (tryLeft >= 8) panelLeft = tryLeft; else panelLeft = maxLeft;
-        }
-
-        // apply fixed positioning to the panel so it always fully appears
-        if (aiPanel) {
-            aiPanel.style.position = 'fixed';
-            aiPanel.style.left = `${Math.round(panelLeft)}px`;
-            aiPanel.style.top = `${Math.round(panelTop)}px`;
-            aiPanel.style.transform = 'none';
-            aiPanel.style.width = `${panelWidth}px`;
-        }
-
-        aiChat.classList.add('open');
-        aiChat.setAttribute('aria-hidden', 'false');
-        toggle.setAttribute('aria-expanded', 'true');
-    }
-    function closeChat(){
-        // clear panel inline placement so CSS fallback applies
-        if (aiPanel) {
-            aiPanel.style.left = '';
-            aiPanel.style.top = '';
-            aiPanel.style.position = '';
-            aiPanel.style.transform = '';
-            aiPanel.style.width = '';
-        }
-
-        aiChat.classList.remove('open');
-        aiChat.setAttribute('aria-hidden', 'true');
-        toggle.setAttribute('aria-expanded', 'false');
-    }
-
-    if (toggle) toggle.addEventListener('click', () => {
-        if (!aiChat) return;
-        if (aiChat.classList.contains('open')) closeChat(); else openChat();
     });
-    if (closeBtn) closeBtn.addEventListener('click', closeChat);
 
-    window.addEventListener('resize', setChatTopFromControls);
-    // initial alignment after controls are added
-    setTimeout(setChatTopFromControls, 700);
-    // watch for map controls being inserted later
-    const mo = new MutationObserver(() => setChatTopFromControls());
-    mo.observe(document.body, { childList: true, subtree: true });
+    const overlay = document.getElementById('dev-overlay');
+    const btnClose = document.getElementById('btn-dev-close');
+    const btnRecord = document.getElementById('btn-record');
+    const btnPreview = document.getElementById('btn-preview');
+
+    function toggleDevPanel() {
+        window.__devMode = true;
+        overlay.classList.toggle('active');
+    }
+    btnClose.addEventListener('click', () => overlay.classList.remove('active'));
+    overlay.addEventListener('click', e => { if (e.target === overlay) overlay.classList.remove('active'); });
+
+    /* ── Site search filter ── */
+    const searchInput = document.getElementById('rec-site-search');
+    if (searchInput) {
+        searchInput.addEventListener('input', () => {
+            if (window.__populateRecorderDropdown) window.__populateRecorderDropdown(searchInput.value);
+        });
+    }
+
+    /* ── Recording visibility filter ── */
+    function applyRecFilter() {
+        if (!window.map) return; // map not ready
+        const m = window.map || map;
+        const types = [];
+        if (document.getElementById('rec-show-cultural').checked) types.push('C');
+        if (document.getElementById('rec-show-natural').checked) types.push('N');
+        if (document.getElementById('rec-show-mixed').checked) types.push('M');
+        const dangerOnly = document.getElementById('rec-show-danger-only').checked;
+
+        const filters = [];
+        if (types.length > 0 && types.length < 3) filters.push(['in', 'category', ...types]);
+        if (dangerOnly) filters.push(['==', 'danger', '1']);
+
+        const filter = filters.length > 1 ? ['all', ...filters] : (filters.length === 1 ? filters[0] : null);
+        try {
+            m.setFilter('sites-layer', filter);
+            m.setFilter('sites-hover-layer', filter ? ['all', filter, ['==', 'id', -1]] : ['==', 'id', -1]);
+        } catch(e) {}
+    }
+    ['rec-show-cultural','rec-show-natural','rec-show-mixed','rec-show-danger-only'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.addEventListener('change', applyRecFilter);
+    });
+
+    /* ══════════════════════════════════════════════════════════
+       CINEMATIC DRONE ANIMATION ENGINE v4 — tile-friendly
+       ══════════════════════════════════════════════════════════
+       Key insight: stay zoomed OUT while travelling, only zoom
+       in once the camera is already centred on the destination.
+       This means high-zoom tiles are only ever needed at ONE
+       geographic location → no mid-path tile loading.
+
+       Phase 1  (0–50%)  "Globe pan"   — rotate the globe to face the
+                                          destination, stay at zoom ~1.5
+       Phase 2  (50–88%) "Zoom in"     — straight descent at destination
+                                          from zoom 1.5 → 12
+       Phase 3  (88–100%)"Orbit"       — smooth 360° circular orbit at
+                                          zoom 12 with cinematic tilt
+    */
+
+    function easeInOutSine(t)  { return -(Math.cos(Math.PI * t) - 1) / 2; }
+    function easeOutQuart(t)   { return 1 - Math.pow(1 - t, 4); }
+    function easeInOutQuint(t) { return t < 0.5 ? 16*t*t*t*t*t : 1 - Math.pow(-2*t + 2, 5) / 2; }
+    function lerp(a, b, t) { return a + (b - a) * t; }
+    function smoothstep(t) { return t * t * (3 - 2 * t); }
+
+    /**
+     * Compute camera state at normalised time t ∈ [0,1].
+     * startLng/startLat = initial globe centre,  tLng/tLat = destination.
+     */
+    function droneStateAt(t, startLng, startLat, tLng, tLat, startBearing) {
+        const totalBearing = 120; // gentle rotation
+        let lng, lat, zoom, pitch, bearing;
+
+        if (t < 0.50) {
+            // ── Phase 1: Globe pan ── stay at zoom 1.5, pan to destination
+            const p = smoothstep(t / 0.50);
+            lng   = lerp(startLng, tLng, easeInOutSine(p));
+            lat   = lerp(startLat, tLat, easeInOutSine(p));
+            zoom  = lerp(1.5, 1.5, p);   // constant zoom
+            pitch = lerp(0, 15, easeInOutSine(p));
+            bearing = startBearing + totalBearing * 0.40 * p;
+        } else if (t < 0.88) {
+            // ── Phase 2: Zoom in at destination ──
+            const p = smoothstep((t - 0.50) / 0.38);
+            lng   = tLng;
+            lat   = tLat;
+            zoom  = lerp(1.5, 14, easeOutQuart(p));
+            // pitch rises to 25 at midpoint, then back to 8
+            pitch = 15 + 10 * Math.sin(p * Math.PI);
+            bearing = startBearing + totalBearing * 0.40 + totalBearing * 0.45 * p;
+        } else {
+            // ── Phase 3: Smooth circular orbit around target ──
+            const p = (t - 0.88) / 0.12; // 0→1 linear
+            lng   = tLng;
+            lat   = tLat;
+            zoom  = 14;
+            // Phase 2 ends at pitch 15; smoothly ramp up to 40° for
+            // a cinematic tilted aerial view, then ease back a little
+            pitch = 15 + 25 * easeInOutSine(Math.min(p * 2, 1));
+            // Continuous 360° orbit — easeInOutSine keeps the start/end smooth
+            bearing = startBearing + totalBearing * 0.85 + easeInOutSine(p) * 360;
+        }
+
+        return {
+            lng, lat,
+            zoom:  Math.max(0, zoom),
+            pitch: Math.max(0, Math.min(60, pitch)),
+            bearing: bearing % 360
+        };
+    }
+
+    /**
+     * Real-time animation (for preview). Uses requestAnimationFrame.
+     */
+    function droneAnimation(map, targetLngLat, totalDurationMs, onProgress, onDone, options = {}) {
+        const startCenter = map.getCenter();
+        const startBearing = map.getBearing();
+        const tLng = targetLngLat[0], tLat = targetLngLat[1];
+        const startTime = performance.now();
+        let cancelled = false;
+        let phase3Fired = false;
+
+        function frame() {
+            if (cancelled) return;
+            const rawT = Math.min((performance.now() - startTime) / totalDurationMs, 1);
+            if (onProgress) onProgress(rawT);
+
+            const s = droneStateAt(rawT, startCenter.lng, startCenter.lat, tLng, tLat, startBearing);
+            map.jumpTo({ center: [s.lng, s.lat], zoom: s.zoom, pitch: s.pitch, bearing: s.bearing });
+
+            if (rawT >= 0.88 && !phase3Fired && options && options.onPhase5) {
+                phase3Fired = true;
+                options.onPhase5();
+            }
+
+            if (rawT < 1) {
+                requestAnimationFrame(frame);
+            } else {
+                if (onDone) onDone();
+            }
+        }
+
+        requestAnimationFrame(frame);
+        return { cancel() { cancelled = true; } };
+    }
+
+    /* ── Title card helpers ── */
+    function showTitleCard(name, category, country) {
+        const card = document.getElementById('site-title-card');
+        if (!card) return;
+        const icon = category === 'C' ? '🏛️' : category === 'N' ? '🌿' : '🏞️';
+        document.getElementById('card-icon').textContent = icon;
+        document.getElementById('card-name').textContent = name;
+        document.getElementById('card-meta').textContent = (country || '') + ' · UNESCO World Heritage';
+        card.style.display = 'block';
+        // double rAF so CSS transition fires after display:block
+        requestAnimationFrame(() => requestAnimationFrame(() => card.classList.add('show')));
+    }
+    function hideTitleCard() {
+        const card = document.getElementById('site-title-card');
+        if (!card) return;
+        card.classList.remove('show');
+        setTimeout(() => { card.style.display = 'none'; }, 950);
+    }
+
+    /* ── Map style selector: Both / Satellite only / Vector only ── */
+    let __mapStyleMode = 'both'; // track current mode
+    function applyMapStyle(value) {
+        __mapStyleMode = value;
+        // Satellite layer opacity (only for normal viewing; animation overrides this)
+        try {
+            map.setPaintProperty('satellite-layer', 'raster-opacity', value === 'vector' ? 0 : 1);
+        } catch(e) {}
+        // Show/hide vector base layers
+        const baseVis = value === 'satellite' ? 'none' : 'visible';
+        try {
+            map.getStyle().layers.forEach(l => {
+                if (l.id === 'satellite-layer' || l.id.includes('sites')) return;
+                try { map.setLayoutProperty(l.id, 'visibility', baseVis); } catch(e) {}
+            });
+        } catch(e) {}
+    }
+    document.querySelectorAll('input[name="map-style"]').forEach(r => {
+        r.addEventListener('change', () => applyMapStyle(r.value));
+    });
+
+    /* ── Tile pre-loader: globe tiles + destination zoom cascade ── */
+    function preloadTiles(coords, maxZoom) {
+        maxZoom = maxZoom || 12;
+        return new Promise(async function(resolve) {
+            var timer = setTimeout(resolve, 60000);
+
+            function waitIdle(center, z, pitch, bearing, timeout) {
+                pitch   = pitch   || 0;
+                bearing = bearing || 0;
+                timeout = timeout || 5000;
+                return new Promise(function(r) {
+                    var t = setTimeout(r, timeout);
+                    map.once('idle', function() { clearTimeout(t); r(); });
+                    map.jumpTo({ center: center, zoom: z, pitch: pitch, bearing: bearing });
+                });
+            }
+
+            // Phase 1 only needs globe-level tiles (zoom ~1.5).
+            // A handful of positions along the pan ensures these few tiles are cached.
+            var startLng = 0, startLat = 20;
+            var midLng = (startLng + coords[0]) / 2;
+            var midLat = (startLat + coords[1]) / 2;
+            await waitIdle([startLng, startLat], 1.5, 0, 0);
+            await waitIdle([midLng, midLat], 1.5, 10, 20);
+            await waitIdle(coords, 1.5, 15, 40);
+
+            // Phase 2 zooms in at the destination only.
+            // Preload every integer zoom from 2 → maxZoom.
+            // At each zoom we load both a low-pitch and a high-pitch view
+            // so tiles for all angles during the zoom-in are cached.
+            for (var z = 2; z <= maxZoom; z++) {
+                var tmo = z >= 9 ? 8000 : 5000;
+                await waitIdle(coords, z, 15, 40, tmo);
+                // High-pitch view at higher zooms to cache tiles the orbit sees
+                if (z >= 8) {
+                    await waitIdle(coords, z, 40, 40, tmo);
+                }
+            }
+
+            // Pre-cache the full 360° orbit at final zoom at tilted pitch
+            for (var b = 0; b < 360; b += 60) {
+                await waitIdle(coords, maxZoom, 40, b, 6000);
+            }
+
+            // Final top-down pass to fill any gaps
+            await waitIdle(coords, maxZoom, 0, 0, 5000);
+
+            clearTimeout(timer);
+            resolve();
+        });
+    }
+
+    /* ── 9:16 Reel mode helpers ── */
+    function enterReelMode() {
+        document.body.classList.add('reel-mode');
+        // resize on next frame so CSS has applied
+        requestAnimationFrame(() => map.resize());
+    }
+    function exitReelMode() {
+        document.body.classList.remove('reel-mode');
+        requestAnimationFrame(() => map.resize());
+    }
+    // Returns [w, h] of the 9:16 reel column regardless of reel-mode state
+    function reelCanvasSize() {
+        return [Math.round(window.innerHeight * 9 / 16), window.innerHeight];
+    }
+
+    /* ── Preview (runs animation without recording) ── */
+    let previewHandle = null;
+    btnPreview.addEventListener('click', async () => {
+        const siteSelect = document.getElementById('rec-site');
+        if (!siteSelect.value) return;
+        const coords = JSON.parse(siteSelect.value);
+        const selOpt = siteSelect.options[siteSelect.selectedIndex];
+        const previewName     = selOpt.dataset.name || selOpt.textContent.split(' — ')[0];
+        const previewCategory = selOpt.dataset.category || 'C';
+        const previewCountry  = selOpt.dataset.country  || '';
+        const duration = parseFloat(document.getElementById('rec-duration').value) * 1000;
+
+        // Apply recording visibility filter before preview
+        applyRecFilter();
+
+        overlay.classList.remove('active');
+        btnPreview.disabled = true;
+        btnRecord.disabled = true;
+        hideTitleCard();
+
+        // Enter 9:16 reel mode so screen matches the Instagram portrait format
+        enterReelMode();
+        await new Promise(r => setTimeout(r, 250)); // let map resize settle
+
+        // Pre-load satellite tiles at the destination so no squares appear during animation
+        const origText = btnPreview.textContent;
+        btnPreview.textContent = '⏳ Loading tiles…';
+        await preloadTiles(coords, 13);
+        btnPreview.textContent = origText;
+
+        // Show watermark inside the reel column
+        const wmCanvas = document.getElementById('watermark-canvas');
+        const [wmW, wmH] = reelCanvasSize();
+        wmCanvas.width = wmW;
+        wmCanvas.height = wmH;
+        wmCanvas.classList.add('active');
+        drawWatermark(wmCanvas, wmCanvas.width, wmCanvas.height, false);
+
+        // Reset to starting view — tiles at destination are now cached
+        map.jumpTo({ center: [0, 20], zoom: 0.5, pitch: 0, bearing: 0 });
+        setTimeout(() => {
+            previewHandle = droneAnimation(map, coords, duration,
+                null,
+                () => {
+                    wmCanvas.classList.remove('active');
+                    exitReelMode();
+                    applyMapStyle(__mapStyleMode); // restore user's map style choice
+                    btnPreview.disabled = false;
+                    btnRecord.disabled = false;
+                    previewHandle = null;
+                    setTimeout(hideTitleCard, 3000);
+                },
+                { onPhase5: () => showTitleCard(previewName, previewCategory, previewCountry) }
+            );
+        }, 400);
+    });
+
+    /* ── 4K Canvas Recorder with watermark ── */
+    btnRecord.addEventListener('click', async () => {
+        const siteSelect = document.getElementById('rec-site');
+        if (!siteSelect.value) return;
+        const coords = JSON.parse(siteSelect.value);
+        const selOpt     = siteSelect.options[siteSelect.selectedIndex];
+        const siteName   = selOpt.textContent;
+        const siteCategory = selOpt.dataset.category || 'C';
+        const siteCountry  = selOpt.dataset.country  || '';
+        const resOption = document.getElementById('rec-resolution').value;
+        const fps = parseInt(document.getElementById('rec-fps').value);
+        const duration = parseFloat(document.getElementById('rec-duration').value);
+        const durationMs = duration * 1000;
+
+        // Resolution map (portrait for Instagram Reels)
+        const resMap = { '1080': [1080, 1920], '2160': [2160, 3840], '4320': [4320, 7680] };
+        let [W, H] = resMap[resOption] || [2160, 3840];
+
+        // Apply recording visibility filter
+        applyRecFilter();
+
+        // Close dev panel
+        overlay.classList.remove('active');
+
+        // Show indicator
+        const indicator = document.getElementById('rec-indicator');
+        indicator.classList.add('active');
+
+        // Show watermark overlay on screen during recording (reel-sized column)
+        const wmCanvas = document.getElementById('watermark-canvas');
+        const [wmW, wmH] = reelCanvasSize();
+        wmCanvas.width = wmW;
+        wmCanvas.height = wmH;
+        wmCanvas.classList.add('active');
+        drawWatermark(wmCanvas, wmCanvas.width, wmCanvas.height, false);
+
+        // Prepare offscreen canvas for compositing
+        const recCanvas = document.createElement('canvas');
+        recCanvas.width = W;
+        recCanvas.height = H;
+        const recCtx = recCanvas.getContext('2d');
+
+        // 4K 60fps needs real headroom
+        const bitrate = resOption === '4320' ? 120_000_000 : resOption === '2160' ? 60_000_000 : 20_000_000;
+
+        // Force exactly the requested export resolution by manipulating container CSS
+        const mapContainer = map.getContainer();
+        const origMapW = mapContainer.style.width;
+        const origMapH = mapContainer.style.height;
+        
+        // We set pixelRatio to 1 and size the container physically to WxH.
+        // This ensures MapLibre's backing WebGL surface perfectly matches
+        // the desired output resolution without guessing device scaling.
+        const origPixelRatio = window.devicePixelRatio || 1;
+        const tempPixelRatio = 1;
+        try { map.setPixelRatio(tempPixelRatio); } catch(e) {}
+        mapContainer.style.setProperty('width', W + 'px', 'important');
+        mapContainer.style.setProperty('height', H + 'px', 'important');
+        
+        // Ensure map is not completely clipped out, keep it fixed to avoid scrolling jumps
+        mapContainer.style.setProperty('position', 'fixed', 'important');
+        mapContainer.style.setProperty('top', '0', 'important');
+        mapContainer.style.setProperty('left', '0', 'important');
+        mapContainer.style.setProperty('max-width', 'none', 'important');
+        mapContainer.style.setProperty('max-height', 'none', 'important');
+        mapContainer.style.setProperty('transform', 'none', 'important');
+        map.resize();
+
+        // ── Encoding: prefer WebCodecs for EXACT duration control ──
+        // VideoEncoder lets us stamp each frame with a precise µs timestamp,
+        // so the exported file is *exactly* the selected number of seconds
+        // regardless of how long the render loop takes.
+        // Strategy: try H.264+mp4-muxer → VP9+webm-muxer → MediaRecorder fallback
+        let useWebCodecs = false;
+        let videoEncoder = null, muxer = null, muxerTarget = null, muxerExt = 'mp4', muxerMime = 'video/mp4';
+        // MediaRecorder fallback (wall-clock timestamps — duration may drift)
+        let recorder = null, chunks = [], stream = null, streamTrack = null, fallbackMime = '';
+
+        // H.264 requires even dimensions
+        const encW = W % 2 === 0 ? W : W - 1;
+        const encH = H % 2 === 0 ? H : H - 1;
+
+        // ── Attempt 1: H.264 + mp4-muxer ──
+        if (!useWebCodecs && typeof VideoEncoder !== 'undefined' && typeof VideoFrame !== 'undefined') {
+            try {
+                const Mp4Lib = await import('https://cdn.jsdelivr.net/npm/mp4-muxer@5/build/mp4-muxer.mjs');
+                // Use level 5.1 (33) and 5.2 (34) for 4K.
+                const h264Profiles = [
+                    'avc1.640034', // High profile level 5.2
+                    'avc1.640033', // High profile level 5.1
+                    'avc1.4D4034', // Main profile level 5.2
+                    'avc1.4D4033', // Main profile level 5.1
+                    'avc1.42E034', // Baseline profile level 5.2
+                    'avc1.42E033'  // Baseline profile level 5.1
+                ];
+                let encoderCfg = null;
+                for (const cs of h264Profiles) {
+                    // let hardwareAcceleration default to "allow" instead of "prefer-hardware"
+                    const cfg = { codec: cs, width: encW, height: encH, bitrate, framerate: fps, avc: { format: 'avc' } };
+                    const r = await VideoEncoder.isConfigSupported(cfg);
+                    if (r.supported) { encoderCfg = cfg; break; }
+                }
+                if (!encoderCfg) throw new Error('No H.264 profile supported for ' + encW + 'x' + encH);
+
+                recCanvas.width = encW; recCanvas.height = encH;
+                muxerTarget = new Mp4Lib.ArrayBufferTarget();
+                muxer = new Mp4Lib.Muxer({ target: muxerTarget, video: { codec: 'avc', width: encW, height: encH }, fastStart: 'in-memory' });
+                videoEncoder = new VideoEncoder({
+                    output: (chunk, meta) => muxer.addVideoChunk(chunk, meta),
+                    error: e => console.error('VideoEncoder error:', e)
+                });
+                videoEncoder.configure(encoderCfg);
+                useWebCodecs = true; W = encW; H = encH; muxerExt = 'mp4'; muxerMime = 'video/mp4';
+                console.log('Encoder: H.264 (' + encoderCfg.codec + ') + mp4-muxer');
+            } catch (e) { console.warn('H.264 + mp4-muxer failed:', e); }
+        }
+
+        // ── Attempt 2: VP9 + webm-muxer ──
+        if (!useWebCodecs && typeof VideoEncoder !== 'undefined' && typeof VideoFrame !== 'undefined') {
+            try {
+                const WebmLib = await import('https://cdn.jsdelivr.net/npm/webm-muxer@5/build/webm-muxer.mjs');
+                // vp09.<profile>.<level>.<bitDepth>
+                // Profile 0, Level 5.1 (51), 8-bit = vp09.00.51.08
+                // Profile 0, Level 5.0 = vp09.00.50.08
+                const vp9Profiles = ['vp09.00.51.08', 'vp09.00.50.08', 'vp09.00.41.08', 'vp8'];
+                let encoderCfg = null;
+                for (const cs of vp9Profiles) {
+                    const cfg = { codec: cs, width: encW, height: encH, bitrate, framerate: fps };
+                    const r = await VideoEncoder.isConfigSupported(cfg);
+                    if (r.supported) { encoderCfg = cfg; break; }
+                }
+                if (!encoderCfg) throw new Error('No VP9/VP8 profile supported');
+
+                recCanvas.width = encW; recCanvas.height = encH;
+                muxerTarget = new WebmLib.ArrayBufferTarget();
+                const webmCodec = encoderCfg.codec.startsWith('vp09') ? 'V_VP9' : 'V_VP8';
+                muxer = new WebmLib.Muxer({ target: muxerTarget, video: { codec: webmCodec, width: encW, height: encH } });
+                videoEncoder = new VideoEncoder({
+                    output: (chunk, meta) => muxer.addVideoChunk(chunk, meta),
+                    error: e => console.error('VideoEncoder error:', e)
+                });
+                videoEncoder.configure(encoderCfg);
+                useWebCodecs = true; W = encW; H = encH; muxerExt = 'webm'; muxerMime = 'video/webm';
+                console.log('Encoder: ' + encoderCfg.codec + ' + webm-muxer');
+            } catch (e) { console.warn('VP9 + webm-muxer failed:', e); }
+        }
+
+        // ── Attempt 3: MediaRecorder fallback ──
+        if (!useWebCodecs) {
+            console.warn('WebCodecs unavailable — using MediaRecorder (duration may not be exact)');
+            const codecs = [
+                'video/mp4;codecs=avc1.42E01E','video/mp4;codecs=avc1.4D401E',
+                'video/mp4;codecs=avc1.640028','video/mp4',
+                'video/webm;codecs=vp9','video/webm;codecs=vp8','video/webm'
+            ];
+            for (const c of codecs) { if (MediaRecorder.isTypeSupported(c)) { fallbackMime = c; break; } }
+            stream = recCanvas.captureStream(0);
+            streamTrack = stream.getVideoTracks()[0];
+            recorder = new MediaRecorder(stream, { mimeType: fallbackMime || undefined, videoBitsPerSecond: bitrate });
+            recorder.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data); };
+        }
+
+        // Show progress
+        const progressWrap = document.getElementById('rec-progress-wrap');
+        const progressFill = document.getElementById('rec-progress-fill');
+        const statusEl = document.getElementById('rec-status');
+        progressWrap.classList.add('active');
+        overlay.classList.add('active');
+        btnRecord.disabled = true;
+        btnPreview.disabled = true;
+
+        const mapCanvas = map.getCanvas();
+
+        function compositeFrame(progress) {
+            recCtx.clearRect(0, 0, W, H);
+            // Use high-quality smooth scaling from map canvas to export canvas
+            recCtx.imageSmoothingEnabled = true;
+            recCtx.imageSmoothingQuality = 'high';
+            recCtx.drawImage(mapCanvas, 0, 0, mapCanvas.width, mapCanvas.height, 0, 0, W, H);
+            drawWatermark(recCanvas, W, H, true);
+            if (progress >= 0.88) {
+                const cardT = Math.min((progress - 0.88) / 0.06, 1);
+                drawTitleCard(recCtx, W, H, siteName.split(' — ')[0], siteCategory, siteCountry, cardT);
+            }
+            // NOTE: frame submission is handled in the main loop
+        }
+
+        // ── Helper: jumpTo + wait for map to finish rendering all tiles ──
+        function waitMapIdle(timeout) {
+            timeout = timeout || 8000;
+            return new Promise(function(r) {
+                var t = setTimeout(r, timeout);
+                map.once('idle', function() { clearTimeout(t); r(); });
+            });
+        }
+
+        // ── Pre-load tiles ──
+        statusEl.textContent = 'Loading tiles…';
+        enterReelMode();
+        // Give map a moment to adopt the huge new WxH dimensions
+        await new Promise(r => setTimeout(r, 600));
+
+        statusEl.textContent = 'Preparing render quality…';
+        map.resize();
+        await new Promise(r => setTimeout(r, 400));
+
+        // Preload tiles up to zoom 14 at export for maximum sharpness
+        await preloadTiles(coords, 14);
+
+        // ── Fast frame-by-frame recording ──
+        // Tiles are already cached from preloadTiles, so we just jumpTo →
+        // trigger one render → capture. No idle-wait needed per frame.
+        const totalFrames = Math.round(fps * duration);
+        const startBearing = map.getBearing();
+        const startLng = 0, startLat = 20;
+
+        // Helper: jumpTo + wait for exactly one rendered frame (fast)
+        function renderOneFrame() {
+            return new Promise(function(r) {
+                map.once('render', r);
+                map.triggerRepaint();
+            });
+        }
+
+        hideTitleCard();
+        let titleShown = false;
+
+        // For the MediaRecorder fallback we must pace frames to real-time,
+        // because captureStream(0) timestamps by wall-clock.
+        const frameIntervalMs = 1000 / fps;
+        let recStartTime = 0;
+
+        if (recorder) recorder.start(100);
+        recStartTime = performance.now();
+        statusEl.textContent = 'Recording… 0%';
+
+        for (let i = 0; i <= totalFrames; i++) {
+            const t = i / totalFrames;
+            const s = droneStateAt(t, startLng, startLat, coords[0], coords[1], startBearing);
+
+            map.jumpTo({ center: [s.lng, s.lat], zoom: s.zoom, pitch: s.pitch, bearing: s.bearing });
+            await renderOneFrame();
+
+            if (t >= 0.88 && !titleShown) {
+                titleShown = true;
+                showTitleCard(siteName.split(' — ')[0], siteCategory, siteCountry);
+            }
+
+            compositeFrame(t);
+
+            // ── Submit frame with exact µs timestamp ──
+            if (useWebCodecs) {
+                const vf = new VideoFrame(recCanvas, {
+                    timestamp: Math.round(i * 1_000_000 / fps),
+                    duration: Math.round(1_000_000 / fps)
+                });
+                videoEncoder.encode(vf, { keyFrame: i % (fps * 2) === 0 });
+                vf.close();
+                // Back-pressure: if encoder queue grows too large, wait
+                if (videoEncoder.encodeQueueSize > 10) {
+                    await new Promise(r => { videoEncoder.ondequeue = () => { videoEncoder.ondequeue = null; r(); }; });
+                }
+            } else {
+                // MediaRecorder fallback: wait until this frame's correct
+                // wall-clock time so captureStream timestamps are accurate.
+                const targetTime = recStartTime + i * frameIntervalMs;
+                const now = performance.now();
+                if (targetTime > now) {
+                    await new Promise(r => setTimeout(r, targetTime - now));
+                }
+                if (streamTrack && streamTrack.requestFrame) streamTrack.requestFrame();
+            }
+
+            // Update progress every 10 frames & yield to keep UI responsive
+            if (i % 10 === 0) {
+                const pct = Math.round(t * 100);
+                progressFill.style.width = pct + '%';
+                statusEl.textContent = 'Recording… ' + pct + '%';
+                // Only yield for WebCodecs path; MediaRecorder already yielded via setTimeout
+                if (useWebCodecs) await new Promise(r => setTimeout(r, 0));
+            }
+        }
+
+        statusEl.textContent = 'Finalizing…';
+
+        function recCleanup() {
+            indicator.classList.remove('active');
+            wmCanvas.classList.remove('active');
+            mapContainer.style.width = '';
+            mapContainer.style.height = '';
+            mapContainer.style.position = '';
+            mapContainer.style.top = '';
+            mapContainer.style.left = '';
+            mapContainer.style.maxWidth = '';
+            mapContainer.style.maxHeight = '';
+            mapContainer.style.transform = '';
+            try { map.setPixelRatio(origPixelRatio); } catch(e) {}
+            exitReelMode();
+            map.resize();
+            applyMapStyle(__mapStyleMode);
+        }
+
+        function downloadVideo(blob, ext) {
+            progressFill.style.width = '100%';
+            statusEl.textContent = 'Exporting…';
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            const safeName = siteName.replace(/[^a-zA-Z0-9]/g, '_').substring(0, 40);
+            a.href = url;
+            a.download = `UNESCO_${safeName}_${resOption}p.${ext}`;
+            document.body.appendChild(a);
+            a.click();
+            setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 1000);
+            statusEl.textContent = 'Done! File downloaded.';
+            btnRecord.disabled = false;
+            btnPreview.disabled = false;
+            setTimeout(() => { progressWrap.classList.remove('active'); }, 3000);
+        }
+
+        if (useWebCodecs) {
+            await videoEncoder.flush();
+            videoEncoder.close();
+            muxer.finalize();
+            recCleanup();
+            downloadVideo(new Blob([muxerTarget.buffer], { type: muxerMime }), muxerExt);
+        } else {
+            recorder.stop();
+            recorder.onstop = () => {
+                recCleanup();
+                const isMp4 = (fallbackMime || '').includes('mp4');
+                const ext = isMp4 ? 'mp4' : 'webm';
+                downloadVideo(new Blob(chunks, { type: fallbackMime || 'video/webm' }), ext);
+            };
+        }
+    });
+
+    /* ── Title card drawing on recording canvas ── */
+    function drawTitleCard(ctx, w, h, name, category, country, alpha) {
+        if (alpha <= 0) return;
+        ctx.save();
+        ctx.globalAlpha = Math.min(alpha, 1);
+
+        // ── Measure text to auto-size the card ──
+        const nameFontSize = Math.round(h * 0.026);
+        const metaFontSize = Math.round(h * 0.016);
+        const iconSize     = Math.round(h * 0.028);
+        const padding      = w * 0.06; // horizontal padding inside card
+
+        ctx.font = `600 ${nameFontSize}px 'Inter', sans-serif`;
+        let displayName = name;
+        let nameWidth = ctx.measureText(displayName).width;
+        // Maximum card width is 88% of canvas width
+        const maxCardW = w * 0.88;
+        const maxTextW = maxCardW - padding * 2;
+        // Truncate with ellipsis if the name is too long
+        if (nameWidth > maxTextW) {
+            while (displayName.length > 1 && ctx.measureText(displayName + '…').width > maxTextW) {
+                displayName = displayName.slice(0, -1);
+            }
+            displayName += '…';
+            nameWidth = ctx.measureText(displayName).width;
+        }
+
+        ctx.font = `400 ${metaFontSize}px 'Inter', sans-serif`;
+        const metaText = (country || '').toUpperCase() + ' · UNESCO WORLD HERITAGE';
+        const metaWidth = ctx.measureText(metaText).width;
+
+        const contentW = Math.max(nameWidth, metaWidth);
+        const cardW  = Math.min(contentW + padding * 2, maxCardW);
+        const cardH  = h * 0.11;
+        const cardX  = (w - cardW) / 2;
+        const cardY  = h - cardH - h * 0.06;
+        const radius = h * 0.018;
+
+        // Glass background
+        ctx.fillStyle = 'rgba(0,0,0,0.52)';
+        ctx.beginPath();
+        ctx.roundRect(cardX, cardY, cardW, cardH, radius);
+        ctx.fill();
+
+        // Icon
+        const icon = category === 'C' ? '🏛️' : category === 'N' ? '🌿' : '🏞️';
+        ctx.font = `${iconSize}px serif`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillStyle = 'rgba(255,255,255,0.95)';
+        ctx.fillText(icon, cardX + cardW * 0.5, cardY + cardH * 0.22);
+
+        // Site name
+        ctx.font = `600 ${nameFontSize}px 'Inter', sans-serif`;
+        ctx.fillStyle = 'rgba(255,255,255,0.95)';
+        ctx.fillText(displayName, cardX + cardW * 0.5, cardY + cardH * 0.50);
+
+        // Country / meta
+        ctx.font = `400 ${metaFontSize}px 'Inter', sans-serif`;
+        ctx.fillStyle = 'rgba(255,255,255,0.55)';
+        ctx.fillText(metaText, cardX + cardW * 0.5, cardY + cardH * 0.76);
+
+        ctx.restore();
+    }
+
+    /* ── Watermark drawing helper ── */
+    function drawWatermark(canvas, w, h, isExport) {
+        const ctx = canvas.getContext('2d');
+        // No background bar — just floating text with shadow for readability
+        const yPos = isExport ? h * 0.055 : 48;
+        const fontSize = isExport ? Math.round(h * 0.022) : 15;
+
+        ctx.save();
+        ctx.font = `600 ${fontSize}px 'Inter', sans-serif`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+
+        // Soft shadow for contrast against any background
+        ctx.shadowColor = 'rgba(0,0,0,0.6)';
+        ctx.shadowBlur = isExport ? 12 : 6;
+        ctx.shadowOffsetX = 0;
+        ctx.shadowOffsetY = isExport ? 3 : 1;
+
+        ctx.fillStyle = 'rgba(255,255,255,0.92)';
+        ctx.fillText('@the_danish_archaeologist', w / 2, yPos);
+        ctx.restore();
+    }
 })();
 </script>
+
 </body>
 </html>
